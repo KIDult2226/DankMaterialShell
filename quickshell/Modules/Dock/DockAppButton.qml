@@ -14,7 +14,7 @@ Item {
     clip: false
     scale: root.magnificationScale
     Behavior on scale {
-        NumberAnimation { duration: Anims.durMedium; easing.type: Easing.OutBack }
+        NumberAnimation { duration: Anims.durShort; easing.type: Easing.OutBack }
     }
     property var appData
     property var contextMenu: null
