@@ -845,6 +845,8 @@ Singleton {
     property int dockBorderThickness: 1
     property bool dockMagnificationEnabled: false
     property real dockMagnificationFactor: 1.4
+    property bool dockPreviewEnabled: false
+    property int dockPreviewDelay: 350
     property bool dockIsolateDisplays: false
     property bool dockLauncherEnabled: false
     property string dockLauncherLogoMode: "apps"

@@ -236,6 +236,68 @@ Item {
 
             SettingsCard {
                 width: parent.width
+                iconName: "zoom_in_map"
+                title: I18n.tr("Magnification")
+                settingKey: "dockMagnification"
+
+                SettingsToggleRow {
+                    settingKey: "dockMagnificationEnabled"
+                    tags: ["dock", "magnification", "zoom", "hover", "enlarge"]
+                    text: I18n.tr("Enlarge on Hover")
+                    description: I18n.tr("Magnifies dock icons based on cursor proximity")
+                    checked: SettingsData.dockMagnificationEnabled
+                    onToggled: checked => SettingsData.set("dockMagnificationEnabled", checked)
+                }
+
+                Column {
+                    width: parent.width
+                    spacing: Theme.spacingL
+                    visible: SettingsData.dockMagnificationEnabled
+
+                    SettingsSliderRow {
+                        maximum: 2.0
+                        value: SettingsData.dockMagnificationFactor
+                        defaultValue: 1.4
+                        unit: ""
+                        tags: ["dock", "magnification", "factor", "zoom"]
+                        onSliderValueChanged: newValue => SettingsData.set("dockMagnificationFactor", newValue)
+                    }
+                }
+            }
+
+            SettingsCard {
+                width: parent.width
+                iconName: "preview"
+                title: I18n.tr("Window Preview")
+                settingKey: "dockPreview"
+
+                SettingsToggleRow {
+                    settingKey: "dockPreviewEnabled"
+                    tags: ["dock", "preview", "window", "thumbnail", "hover"]
+                    text: I18n.tr("Show Window Thumbnails on Hover")
+                    description: I18n.tr("Displays live window previews when hovering dock items")
+                    checked: SettingsData.dockPreviewEnabled
+                    onToggled: checked => SettingsData.set("dockPreviewEnabled", checked)
+                }
+
+                Column {
+                    width: parent.width
+                    spacing: Theme.spacingL
+                    visible: SettingsData.dockPreviewEnabled
+
+                    SettingsSliderRow {
+                        maximum: 1500
+                        value: SettingsData.dockPreviewDelay
+                        defaultValue: 350
+                        unit: "ms"
+                        tags: ["dock", "preview", "delay"]
+                        onSliderValueChanged: newValue => SettingsData.set("dockPreviewDelay", newValue)
+                    }
+                }
+            }
+
+            SettingsCard {
+                width: parent.width
                 iconName: "apps"
                 title: I18n.tr("Launcher Button")
                 settingKey: "dockLauncher"

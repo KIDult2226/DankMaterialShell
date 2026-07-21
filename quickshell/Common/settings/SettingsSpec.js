@@ -422,6 +422,8 @@ var SPEC = {
     dockBorderThickness: { def: 1 },
     dockMagnificationEnabled: { def: false },
     dockMagnificationFactor: { def: 1.4 },
+    dockPreviewEnabled: { def: false },
+    dockPreviewDelay: { def: 350 },
     dockIsolateDisplays: { def: false },
     dockLauncherEnabled: { def: false },
     dockLauncherLogoMode: { def: "apps" },

@@ -14,7 +14,7 @@ Item {
     clip: false
     scale: root.magnificationScale
     Behavior on scale {
-        NumberAnimation { duration: Anims.durShort; easing.type: Easing.OutBack }
+        NumberAnimation { duration: Anims.durShort; easing.type: Easing.OutCubic }
     }
     property var appData
     property var contextMenu: null
@@ -34,7 +34,8 @@ Item {
     property bool showTooltip: mouseArea.containsMouse && !dragging
     property var cachedDesktopEntry: null
     property real actualIconSize: 40
-    readonly property real magnificationScale: SettingsData.dockMagnificationEnabled && root.isHovered ? SettingsData.dockMagnificationFactor : 1.0
+    property real magnificationScale: SettingsData.dockMagnificationEnabled && root.isHovered ? SettingsData.dockMagnificationFactor : 1.0
+    property real magnificationOffset: 0.0
     property bool shouldShowIndicator: {
         if (!appData)
             return false;
@@ -173,12 +174,17 @@ Item {
         Qt.callLater(() => waylandToplevel.activate());
         return true;
     }
+
     onIsHoveredChanged: {
         if (mouseArea.pressed || dragging)
             return;
+        // Disable bounce nudge when magnification is enabled — the distance-based
+        // magnification timer drives scale smoothly; bounce would conflict and cause snap.
+        if (SettingsData.dockMagnificationEnabled)
+            return;
         if (isHovered) {
             exitAnimation.stop();
-            if (!bounceAnimation.running) {
+            if (!bounceAnimation.running && root.magnificationScale < 1.01) {
                 bounceAnimation.restart();
             }
         } else {
@@ -431,23 +437,41 @@ Item {
         id: visualContent
         anchors.fill: parent
 
-        transform: Translate {
-            id: iconTransform
-            x: {
-                if (dragging && !isVertical)
-                    return dragAxisOffset;
-                if (!dragging && isVertical)
-                    return hoverAnimOffset;
-                return 0;
+        transform: [
+            Scale {
+                xScale: root.magnificationScale
+                yScale: root.magnificationScale
+                origin.x: root.width / 2
+                origin.y: {
+                    if (SettingsData.dockPosition === SettingsData.Position.Bottom)
+                        return root.height;
+                    if (SettingsData.dockPosition === SettingsData.Position.Top)
+                        return 0;
+                    return root.height / 2;
+                }
+            },
+            Translate {
+                x: root.isVertical ? 0 : root.magnificationOffset
+                y: root.isVertical ? root.magnificationOffset : 0
+            },
+            Translate {
+                id: iconTransform
+                x: {
+                    if (dragging && !isVertical)
+                        return dragAxisOffset;
+                    if (!dragging && isVertical)
+                        return hoverAnimOffset;
+                    return 0;
+                }
+                y: {
+                    if (dragging && isVertical)
+                        return dragAxisOffset;
+                    if (!dragging && !isVertical)
+                        return hoverAnimOffset;
+                    return 0;
+                }
             }
-            y: {
-                if (dragging && isVertical)
-                    return dragAxisOffset;
-                if (!dragging && !isVertical)
-                    return hoverAnimOffset;
-                return 0;
-            }
-        }
+        ]
 
         Rectangle {
             anchors.fill: parent

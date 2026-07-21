@@ -430,6 +430,193 @@ Variants {
 
         property real animationHeadroom: Math.ceil(SettingsData.dockIconSize * 0.35)
 
+        // ─── Dock magnification (distance-based cosine wave, dhruva-style) ───
+        property real mouseDockX: -9999
+        property real mouseDockY: -9999
+        property bool magnificationActive: SettingsData.dockMagnificationEnabled && dockMouseArea.containsMouse && dock.reveal
+        property bool _mouseExited: true
+        property real lastHideTime: 0
+        // Extra space the dock background grows to fit magnified icons without clipping.
+        readonly property real magnificationExpansion: SettingsData.dockMagnificationEnabled ? SettingsData.dockIconSize * (SettingsData.dockMagnificationFactor - 1.0) : 0
+
+        function getDockItems() {
+            if (!dockApps.children[0])
+                return [];
+            const layoutItem = dockApps.children[0];
+            const flowLayout = layoutItem.children[0];
+            let repeater = null;
+            for (var i = 0; i < flowLayout.children.length; i++) {
+                const child = flowLayout.children[i];
+                if (child && typeof child.count !== "undefined" && typeof child.itemAt === "function") {
+                    repeater = child;
+                    break;
+                }
+            }
+            if (!repeater)
+                return [];
+            const items = [];
+            for (var j = 0; j < repeater.count; j++) {
+                const item = repeater.itemAt(j);
+                // Accept either a wrapper exposing .dockButton or the button itself.
+                const btn = item && item.dockButton ? item.dockButton : item;
+                if (btn && btn.magnificationScale !== undefined && btn.visible !== false)
+                    items.push(btn);
+            }
+            return items;
+        }
+
+        function updateMagnification() {
+            const items = getDockItems();
+            if (items.length === 0)
+                return;
+
+            // Idle / exit path: smoothly shrink back to 1.0, then stop the timer.
+            if (!magnificationActive) {
+                let allSettled = true;
+                for (let i = 0; i < items.length; i++) {
+                    const btn = items[i];
+                    const prev = btn.magnificationScale;
+                    btn.magnificationScale = prev + (1.0 - prev) * 0.3;
+                    btn.magnificationOffset = btn.magnificationOffset * 0.7;
+                    if (Math.abs(btn.magnificationScale - 1.0) >= 0.005 || Math.abs(btn.magnificationOffset) >= 0.5)
+                        allSettled = false;
+                    else {
+                        btn.magnificationScale = 1.0;
+                        btn.magnificationOffset = 0.0;
+                    }
+                }
+                if (allSettled)
+                    magnificationTimer.running = false;
+                return;
+            }
+
+            const iconSize = SettingsData.dockIconSize;
+            const radius = iconSize * 3.5;
+            const zoomRange = (SettingsData.dockMagnificationFactor - 1.0) * 2.0;
+            const piOverRadius = Math.PI / radius;
+            const smoothFactor = 0.24;
+
+            const cursorPos = isVertical ? mouseDockY : mouseDockX;
+
+            const scales = [];
+            const centers = [];
+            const widths = [];
+
+            for (let i = 0; i < items.length; i++) {
+                const btn = items[i];
+                // Map from btn's parent (Flow layout) using btn's position within it.
+                // This avoids the magnification transform feedback loop — we get the
+                // untransformed layout position, not the visually-shifted one.
+                const mapped = btn.parent ? btn.parent.mapToItem(dockMouseArea, btn.x, btn.y) : btn.mapToItem(dockMouseArea, 0, 0);
+                const center = isVertical ? (mapped.y + btn.height / 2) : (mapped.x + btn.width / 2);
+                centers.push(center);
+                widths.push(isVertical ? btn.height : btn.width);
+
+                const dist = Math.abs(cursorPos - center);
+                if (dist >= radius) {
+                    scales.push(1.0);
+                } else {
+                    scales.push(1.0 + zoomRange * ((Math.cos(dist * piOverRadius) + 1) * 0.5));
+                }
+            }
+
+            // Neighbor propagation: icons push outward as they grow.
+            const offsets = new Array(items.length).fill(0);
+            let cursorIdx = 0;
+            let minDist = Infinity;
+            for (let i = 0; i < centers.length; i++) {
+                const d = Math.abs(cursorPos - centers[i]);
+                if (d < minDist) {
+                    minDist = d;
+                    cursorIdx = i;
+                }
+            }
+
+            for (let i = cursorIdx - 1; i >= 0; i--) {
+                const extra = widths[i + 1] * (scales[i + 1] - 1) / 2 + widths[i] * (scales[i] - 1) / 2;
+                offsets[i] = offsets[i + 1] - extra;
+            }
+            for (let i = cursorIdx + 1; i < items.length; i++) {
+                const extra = widths[i - 1] * (scales[i - 1] - 1) / 2 + widths[i] * (scales[i] - 1) / 2;
+                offsets[i] = offsets[i - 1] + extra;
+            }
+
+            for (let i = 0; i < items.length; i++) {
+                const btn = items[i];
+                if (btn.magnificationScale === undefined || btn.magnificationOffset === undefined)
+                    continue;
+                const tScale = scales[i];
+                const tOffset = offsets[i];
+                const pScale = btn.magnificationScale;
+                const pOffset = btn.magnificationOffset;
+                btn.magnificationScale = pScale + (tScale - pScale) * smoothFactor;
+                btn.magnificationOffset = pOffset + (tOffset - pOffset) * smoothFactor;
+            }
+        }
+
+        Timer {
+            id: magnificationTimer
+            interval: 16
+            repeat: true
+            // Only runs while the cursor is over the dock OR while settling back to 1.0.
+            running: dock.reveal && magnificationActive
+            onTriggered: dock.updateMagnification()
+        }
+
+        // ─── Window thumbnail preview ───
+        DockPreview {
+            id: dockPreview
+            targetScreen: dock.screen
+        }
+
+        Timer {
+            id: previewRevealDelay
+            interval: SettingsData.dockPreviewDelay
+            repeat: false
+            onTriggered: {
+                // Debounce: if we just hid, don't immediately re-trigger.
+                if (Date.now() - dock.lastHideTime < 300)
+                    return;
+                dock.showPreviewForHovered();
+            }
+        }
+
+        function showPreviewForHovered() {
+            if (!SettingsData.dockPreviewEnabled)
+                return;
+            const btn = dock.hoveredButton;
+            if (!btn || !btn.appData)
+                return;
+
+            let windows = [];
+            if (btn.appData.type === "window") {
+                const tl = btn.getToplevelObject();
+                if (tl)
+                    windows = [tl];
+            } else if (btn.appData.type === "grouped") {
+                windows = btn.getGroupedToplevels();
+            }
+
+            if (windows.length === 0)
+                return;
+
+            const btnPos = btn.mapToItem(null, 0, 0);
+            const pos = isVertical ?
+                Qt.point(btnPos.x, btnPos.y + btn.height / 2) :
+                Qt.point(btnPos.x + btn.width / 2, btnPos.y);
+
+            dockPreview.show(windows, dock.screen, pos, isVertical,
+                SettingsData.dockPosition === SettingsData.Position.Bottom ? "bottom" :
+                SettingsData.dockPosition === SettingsData.Position.Top ? "top" :
+                SettingsData.dockPosition === SettingsData.Position.Left ? "left" : "right",
+                dock.magnificationExpansion);
+        }
+
+        function hidePreview() {
+            dock.lastHideTime = Date.now();
+            dockPreview.hide();
+        }
+
         implicitWidth: isVertical ? (px(dockGeometry.surfaceThickness + SettingsData.dockIconSize * 0.3) + animationHeadroom) : 0
         implicitHeight: !isVertical ? (px(dockGeometry.surfaceThickness + SettingsData.dockIconSize * 0.3) + animationHeadroom) : 0
 
@@ -559,6 +746,8 @@ Variants {
                 if (!dock.reveal) {
                     tooltipRevealDelay.stop();
                     dockTooltip.hide();
+                    dock.hidePreview();
+                    previewRevealDelay.stop();
                 } else {
                     tooltipRevealDelay.restart();
                 }
@@ -566,6 +755,12 @@ Variants {
 
             function onHoveredButtonChanged() {
                 dock.showTooltipForHoveredButton();
+                if (dock.hoveredButton) {
+                    previewRevealDelay.restart();
+                } else {
+                    previewRevealDelay.stop();
+                    dock.hidePreview();
+                }
             }
         }
 
@@ -621,6 +816,23 @@ Variants {
                 }
                 hoverEnabled: true
                 acceptedButtons: Qt.NoButton
+                onPositionChanged: mouse => {
+                    dock.mouseDockX = mouse.x;
+                    dock.mouseDockY = mouse.y;
+                    dock._mouseExited = false;
+                    magnificationTimer.running = true;
+                }
+                onContainsMouseChanged: {
+                    if (!containsMouse) {
+                        dock.mouseDockX = -9999;
+                        dock.mouseDockY = -9999;
+                        dock._mouseExited = true;
+                        dock.hidePreview();
+                        previewRevealDelay.stop();
+                    } else {
+                        previewRevealDelay.restart();
+                    }
+                }
 
                 Behavior on height {
                     NumberAnimation {
@@ -720,8 +932,8 @@ Variants {
                         anchors.leftMargin: dock.isVertical && SettingsData.dockPosition === SettingsData.Position.Left ? dockGeometry.bodyEdgeMargin : 0
                         anchors.rightMargin: dock.isVertical && SettingsData.dockPosition === SettingsData.Position.Right ? dockGeometry.bodyEdgeMargin : 0
 
-                        implicitWidth: dock.isVertical ? (dockApps.implicitHeight + SettingsData.dockSpacing * 2) : (dockApps.implicitWidth + SettingsData.dockSpacing * 2)
-                        implicitHeight: dock.isVertical ? (dockApps.implicitWidth + SettingsData.dockSpacing * 2) : (dockApps.implicitHeight + SettingsData.dockSpacing * 2)
+                        implicitWidth: dock.isVertical ? (dockApps.implicitHeight + SettingsData.dockSpacing * 2) : (dockApps.implicitWidth + SettingsData.dockSpacing * 2 + dock.magnificationExpansion)
+                        implicitHeight: dock.isVertical ? (dockApps.implicitWidth + SettingsData.dockSpacing * 2 + dock.magnificationExpansion) : (dockApps.implicitHeight + SettingsData.dockSpacing * 2)
                         width: implicitWidth
                         height: implicitHeight
 
