@@ -433,7 +433,11 @@ Variants {
         // ─── Dock magnification (distance-based cosine wave, dhruva-style) ───
         property real mouseDockX: -9999
         property real mouseDockY: -9999
+        // True while the cursor is over the dock. The shrink-back path is driven by
+        // _magnificationUnsettled below so the timer keeps running until icons settle.
         property bool magnificationActive: SettingsData.dockMagnificationEnabled && dockMouseArea.containsMouse && dock.reveal
+        // Set true on exit; cleared once every icon has eased back to scale 1.0.
+        property bool _magnificationUnsettled: false
         property bool _mouseExited: true
         property real lastHideTime: 0
         // Extra space the dock background grows to fit magnified icons without clipping.
@@ -472,12 +476,14 @@ Variants {
 
             // Idle / exit path: smoothly shrink back to 1.0, then stop the timer.
             if (!magnificationActive) {
+                dock._magnificationUnsettled = true;
                 let allSettled = true;
                 for (let i = 0; i < items.length; i++) {
                     const btn = items[i];
                     const prev = btn.magnificationScale;
-                    btn.magnificationScale = prev + (1.0 - prev) * 0.3;
-                    btn.magnificationOffset = btn.magnificationOffset * 0.7;
+                    // Gentler ease-back (0.18) so icons recede softly instead of snapping.
+                    btn.magnificationScale = prev + (1.0 - prev) * 0.18;
+                    btn.magnificationOffset = btn.magnificationOffset * 0.78;
                     if (Math.abs(btn.magnificationScale - 1.0) >= 0.005 || Math.abs(btn.magnificationOffset) >= 0.5)
                         allSettled = false;
                     else {
@@ -486,16 +492,16 @@ Variants {
                     }
                 }
                 if (allSettled)
-                    magnificationTimer.running = false;
+                    dock._magnificationUnsettled = false;
                 return;
             }
+            dock._magnificationUnsettled = true;
 
             const iconSize = SettingsData.dockIconSize;
             const radius = iconSize * 3.5;
             const zoomRange = (SettingsData.dockMagnificationFactor - 1.0) * 2.0;
             const piOverRadius = Math.PI / radius;
-            const smoothFactor = 0.24;
-
+            const smoothFactor = 0.45;
             const cursorPos = isVertical ? mouseDockY : mouseDockX;
 
             const scales = [];
@@ -558,8 +564,9 @@ Variants {
             id: magnificationTimer
             interval: 16
             repeat: true
-            // Only runs while the cursor is over the dock OR while settling back to 1.0.
-            running: dock.reveal && magnificationActive
+            // Runs while the cursor is over the dock, and also keeps running after
+            // exit until every icon has eased back to scale 1.0 (settle path).
+            running: dock.reveal && (magnificationActive || _magnificationUnsettled)
             onTriggered: dock.updateMagnification()
         }
 

@@ -12,10 +12,6 @@ Item {
     id: root
 
     clip: false
-    scale: root.magnificationScale
-    Behavior on scale {
-        NumberAnimation { duration: Anims.durShort; easing.type: Easing.OutCubic }
-    }
     property var appData
     property var contextMenu: null
     property var dockApps: null
@@ -563,22 +559,26 @@ Item {
             visible: !coreIcon.visible && iconImg.status !== Image.Ready && appData && appData.appId && Paths.isSteamApp(appData.appId)
         }
 
-        Loader {
-            anchors.horizontalCenter: SettingsData.dockPosition === SettingsData.Position.Left || SettingsData.dockPosition === SettingsData.Position.Right ? undefined : parent.horizontalCenter
-            anchors.verticalCenter: SettingsData.dockPosition === SettingsData.Position.Left || SettingsData.dockPosition === SettingsData.Position.Right ? parent.verticalCenter : undefined
-            anchors.bottom: SettingsData.dockPosition === SettingsData.Position.Bottom ? parent.bottom : undefined
-            anchors.top: SettingsData.dockPosition === SettingsData.Position.Top ? parent.top : undefined
-            anchors.left: SettingsData.dockPosition === SettingsData.Position.Left ? parent.left : undefined
-            anchors.right: SettingsData.dockPosition === SettingsData.Position.Right ? parent.right : undefined
-            anchors.bottomMargin: SettingsData.dockPosition === SettingsData.Position.Bottom ? -(SettingsData.dockSpacing / 2 + 1.4) : 0
-            anchors.topMargin: SettingsData.dockPosition === SettingsData.Position.Top ? -(SettingsData.dockSpacing / 2 + 1.4) : 0
-            anchors.leftMargin: SettingsData.dockPosition === SettingsData.Position.Left ? -(SettingsData.dockSpacing / 2 + 1.4) : 0
-            anchors.rightMargin: SettingsData.dockPosition === SettingsData.Position.Right ? -(SettingsData.dockSpacing / 2 + 1.4) : 0
+    }
+    // ─── Running indicator ───
+    // Kept OUTSIDE the visualContent transform group so magnification scale/offset
+    // never distorts, shifts, or hides the indicator — it stays pinned to the dock
+    // edge exactly like the original (non-magnified) detail.
+    Loader {
+        anchors.horizontalCenter: SettingsData.dockPosition === SettingsData.Position.Left || SettingsData.dockPosition === SettingsData.Position.Right ? undefined : parent.horizontalCenter
+        anchors.verticalCenter: SettingsData.dockPosition === SettingsData.Position.Left || SettingsData.dockPosition === SettingsData.Position.Right ? parent.verticalCenter : undefined
+        anchors.bottom: SettingsData.dockPosition === SettingsData.Position.Bottom ? parent.bottom : undefined
+        anchors.top: SettingsData.dockPosition === SettingsData.Position.Top ? parent.top : undefined
+        anchors.left: SettingsData.dockPosition === SettingsData.Position.Left ? parent.left : undefined
+        anchors.right: SettingsData.dockPosition === SettingsData.Position.Right ? parent.right : undefined
+        anchors.bottomMargin: SettingsData.dockPosition === SettingsData.Position.Bottom ? -(SettingsData.dockSpacing / 2 + 1.4) : 0
+        anchors.topMargin: SettingsData.dockPosition === SettingsData.Position.Top ? -(SettingsData.dockSpacing / 2 + 1.4) : 0
+        anchors.leftMargin: SettingsData.dockPosition === SettingsData.Position.Left ? -(SettingsData.dockSpacing / 2 + 1.4) : 0
+        anchors.rightMargin: SettingsData.dockPosition === SettingsData.Position.Right ? -(SettingsData.dockSpacing / 2 + 1.4) : 0
 
-            sourceComponent: SettingsData.dockPosition === SettingsData.Position.Left || SettingsData.dockPosition === SettingsData.Position.Right ? columnIndicator : rowIndicator
+        sourceComponent: SettingsData.dockPosition === SettingsData.Position.Left || SettingsData.dockPosition === SettingsData.Position.Right ? columnIndicator : rowIndicator
 
-            visible: root.shouldShowIndicator
-        }
+        visible: root.shouldShowIndicator
     }
 
     Component {
