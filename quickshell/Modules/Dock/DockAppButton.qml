@@ -13,9 +13,6 @@ Item {
 
     clip: false
     scale: root.isHovered ? 1.4 : 1.0
-    Behavior on scale {
-        NumberAnimation { duration: Anims.durShort; easing.type: Easing.BezierSpline; easing.bezierCurve: Anims.emphasizedAccel }
-    }
     property var appData
     property var contextMenu: null
     property var dockApps: null
