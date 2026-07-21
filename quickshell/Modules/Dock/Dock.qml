@@ -511,43 +511,42 @@ Variants {
 
             const iconSize = SettingsData.dockIconSize;
             const radius = Math.max(iconSize * 2.3, 110);
-            const zoomRange = SettingsData.dockMagnificationFactor - 1.0;
+            const zoomRange = (SettingsData.dockMagnificationFactor - 1.0) * 2.0;
             const nudge = Math.max(iconSize * 0.45, 20);
             const smoothFactor = 0.45;
             const cursorPos = isVertical ? mouseDockY : mouseDockX;
 
-            // ── Edge expansion targets (framer-motion reference: left/right in [0,40] → [0,-40]) ──
-            const lDist = Math.max(0, Math.min(edgeRange, mouseDockX));
-            const rDist = Math.max(0, Math.min(edgeRange, (dockApps.implicitWidth + SettingsData.dockSpacing * 2) - mouseDockX));
-            const tDist = Math.max(0, Math.min(edgeRange, mouseDockY));
-            const bDist = Math.max(0, Math.min(edgeRange, (dockApps.implicitHeight + SettingsData.dockSpacing * 2) - mouseDockY));
-            const tLeft = (lDist / edgeRange) * edgeMax;
-            const tRight = (rDist / edgeRange) * edgeMax;
-            const tTop = (tDist / edgeRange) * edgeMax;
-            const tBottom = (bDist / edgeRange) * edgeMax;
-            dock.magLeftExpansion = dock.magLeftExpansion + (tLeft - dock.magLeftExpansion) * smoothFactor;
-            dock.magRightExpansion = dock.magRightExpansion + (tRight - dock.magRightExpansion) * smoothFactor;
-            dock.magTopExpansion = dock.magTopExpansion + (tTop - dock.magTopExpansion) * smoothFactor;
-            dock.magBottomExpansion = dock.magBottomExpansion + (tBottom - dock.magBottomExpansion) * smoothFactor;
+            // ── Edge expansion: only relevant axis (horizontal→left/right, vertical→top/bottom) ──
+            if (!isVertical) {
+                const lDist = Math.max(0, Math.min(edgeRange, mouseDockX));
+                const rDist = Math.max(0, Math.min(edgeRange, (dockApps.implicitWidth + SettingsData.dockSpacing * 2) - mouseDockX));
+                const tLeft = (lDist / edgeRange) * edgeMax;
+                const tRight = (rDist / edgeRange) * edgeMax;
+                dock.magLeftExpansion = dock.magLeftExpansion + (tLeft - dock.magLeftExpansion) * smoothFactor;
+                dock.magRightExpansion = dock.magRightExpansion + (tRight - dock.magRightExpansion) * smoothFactor;
+            } else {
+                const tDist = Math.max(0, Math.min(edgeRange, mouseDockY));
+                const bDist = Math.max(0, Math.min(edgeRange, (dockApps.implicitHeight + SettingsData.dockSpacing * 2) - mouseDockY));
+                const tTop = (tDist / edgeRange) * edgeMax;
+                const tBottom = (bDist / edgeRange) * edgeMax;
+                dock.magTopExpansion = dock.magTopExpansion + (tTop - dock.magTopExpansion) * smoothFactor;
+                dock.magBottomExpansion = dock.magBottomExpansion + (tBottom - dock.magBottomExpansion) * smoothFactor;
+            }
 
-            // ── Per-icon scale + offset (framer-motion reference formula) ──
+            // ── Per-icon scale (cosine wave) + offset (push away from cursor) ──
             for (let i = 0; i < items.length; i++) {
                 const btn = items[i];
                 if (btn.magnificationScale === undefined || btn.magnificationOffset === undefined)
                     continue;
                 const mapped = btn.parent ? btn.parent.mapToItem(dockMouseArea, btn.x, btn.y) : btn.mapToItem(dockMouseArea, 0, 0);
                 const center = isVertical ? (mapped.y + btn.height / 2) : (mapped.x + btn.width / 2);
-                const dist = cursorPos - center; // signed, matching reference's `distance`
+                const dist = cursorPos - center;
                 const absDist = Math.abs(dist);
-                // Cosine-wave scale
                 let tScale = 1.0;
-                if (absDist < radius) {
-                    tScale = 1.0 + zoomRange * ((Math.cos(absDist * Math.PI / radius) + 1) * 0.5);
-                }
-                // Per-icon offset: (-d/DIST) * NUDGE * scale (reference formula)
                 let tOffset = 0;
                 if (absDist < radius) {
-                    tOffset = -(dist / radius) * nudge * tScale;
+                    tScale = 1.0 + zoomRange * ((Math.cos(absDist * Math.PI / radius) + 1) * 0.5);
+                    tOffset = -(dist / radius) * nudge;
                 }
                 const pScale = btn.magnificationScale;
                 const pOffset = btn.magnificationOffset;
