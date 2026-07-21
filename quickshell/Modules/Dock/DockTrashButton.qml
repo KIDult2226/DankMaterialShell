@@ -13,50 +13,8 @@ Item {
     property var contextMenu: null
     property var parentDockScreen: null
     property real actualIconSize: 40
-    // Magnification is spring-tracked per-button (framer-motion parity):
-    // targetMagnificationScale/Offset are pure bindings over the dock's
-    // cursor position; a Behavior+SpringAnimation interpolates the actual
-    // magnificationScale/Offset toward those targets. No timer writes the
-    // animated values, so the spring never fights a per-frame retarget.
-    // Reference: https://buildui.com/recipes/magnified-dock
     property real magnificationScale: 1.0
     property real magnificationOffset: 0.0
-    readonly property real _magRadius: Math.max(SettingsData.dockIconSize * 2.3, 110)
-    readonly property real _magZoomRange: SettingsData.dockMagnificationFactor - 1.0
-    readonly property real _magNudge: Math.max(SettingsData.dockIconSize * 0.45, 20)
-    readonly property var _dockRef: dockApps ? dockApps.dockRef : null
-    readonly property bool _magEnabled: SettingsData.dockMagnificationEnabled && _dockRef && _dockRef.magnificationActive
-    readonly property real _cursorPos: {
-        if (!_magEnabled || !_dockRef)
-            return -9999;
-        return _dockRef.isVertical ? _dockRef.mouseDockY : _dockRef.mouseDockX;
-    }
-    readonly property real _center: {
-        if (!_dockRef || !_dockRef.dockMouseArea)
-            return 0;
-        const ma = _dockRef.dockMouseArea;
-        const mapped = root.parent ? root.parent.mapToItem(ma, root.x, root.y) : root.mapToItem(ma, 0, 0);
-        return _dockRef.isVertical ? (mapped.y + root.height / 2) : (mapped.x + root.width / 2);
-    }
-    readonly property real _dist: {
-        if (!_magEnabled)
-            return 9999;
-        return _cursorPos - _center;
-    }
-    readonly property real _absDist: Math.abs(_dist)
-    readonly property real targetMagnificationScale: {
-        if (!_magEnabled || _absDist >= _magRadius)
-            return 1.0;
-        return 1.0 + _magZoomRange * ((Math.cos(_absDist * Math.PI / _magRadius) + 1) * 0.5);
-    }
-    readonly property real targetMagnificationOffset: {
-        if (!_magEnabled || _absDist >= _magRadius)
-            return 0;
-        const sign = _dist === 0 ? 0 : (_dist > 0 ? 1 : -1);
-        return -sign * _magNudge * (targetMagnificationScale - 1.0) / _magZoomRange;
-    }
-    onTargetMagnificationScaleChanged: magnificationScale = targetMagnificationScale
-    onTargetMagnificationOffsetChanged: magnificationOffset = targetMagnificationOffset
     Behavior on magnificationScale { SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 } }
     Behavior on magnificationOffset { SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 } }
 

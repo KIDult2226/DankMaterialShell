@@ -433,15 +433,86 @@ Variants {
         // ─── Dock magnification (distance-based cosine wave, dhruva-style) ───
         property real mouseDockX: -9999
         property real mouseDockY: -9999
-        // True while the cursor is over the dock. The shrink-back path is driven by
-        // _magnificationUnsettled below so the timer keeps running until icons settle.
+        // True while the cursor is over the dock. The timer's running: binding
+        // keeps it active while _magUnsettled is set so icons spring back smoothly.
         property bool magnificationActive: SettingsData.dockMagnificationEnabled && dockMouseArea.containsMouse && dock.reveal
-        // Set true on exit; cleared once every icon has eased back to scale 1.0.
         property bool _mouseExited: true
         property real lastHideTime: 0
         // Extra space the dock background grows to fit magnified icons without clipping.
         readonly property real magnificationExpansion: SettingsData.dockMagnificationEnabled ? SettingsData.dockIconSize * (SettingsData.dockMagnificationFactor - 1.0) : 0
 
+
+        // ─── Dock magnification: 50ms target-push + per-button springs ───
+        // The timer computes pure cosine-wave targets and writes them to each
+        // button. Behavior+SpringAnimation on each button interpolates from the
+        // current animated value toward the latest target (no lerp feedback).
+        property bool _magUnsettled: false
+        function _getMagButtons() {
+            if (!dockApps.children[0]) return [];
+            const layoutItem = dockApps.children[0];
+            const flowLayout = layoutItem.children[0];
+            let repeater = null;
+            for (var i = 0; i < flowLayout.children.length; i++) {
+                const child = flowLayout.children[i];
+                if (child && typeof child.count !== "undefined" && typeof child.itemAt === "function") { repeater = child; break; }
+            }
+            if (!repeater) return [];
+            const items = [];
+            for (var j = 0; j < repeater.count; j++) {
+                const item = repeater.itemAt(j);
+                const btn = item && item.dockButton ? item.dockButton : item;
+                if (btn && btn.magnificationScale !== undefined && btn.visible !== false)
+                    items.push(btn);
+            }
+            return items;
+        }
+        function _updateMagTargets() {
+            const items = _getMagButtons();
+            if (items.length === 0) return;
+
+            if (!magnificationActive) {
+                _magUnsettled = true;
+                let allSettled = true;
+                for (let i = 0; i < items.length; i++) {
+                    const btn = items[i];
+                    if (Math.abs(btn.magnificationScale - 1.0) >= 0.005 || Math.abs(btn.magnificationOffset) >= 0.5)
+                        allSettled = false;
+                    else { btn.magnificationScale = 1.0; btn.magnificationOffset = 0.0; }
+                }
+                if (allSettled) _magUnsettled = false;
+                return;
+            }
+            _magUnsettled = true;
+
+            const iconSize = SettingsData.dockIconSize;
+            const radius = Math.max(iconSize * 2.3, 110);
+            const zoomRange = SettingsData.dockMagnificationFactor - 1.0;
+            const cursorPos = isVertical ? mouseDockY : mouseDockX;
+
+            for (let i = 0; i < items.length; i++) {
+                const btn = items[i];
+                const mapped = btn.parent ? btn.parent.mapToItem(dockMouseArea, btn.x, btn.y) : btn.mapToItem(dockMouseArea, 0, 0);
+                const center = isVertical ? (mapped.y + btn.height / 2) : (mapped.x + btn.width / 2);
+                const dist = Math.abs(cursorPos - center);
+                if (dist >= radius) {
+                    btn.magnificationScale = 1.0; btn.magnificationOffset = 0.0;
+                } else {
+                    const scale = 1.0 + zoomRange * ((Math.cos(dist * Math.PI / radius) + 1) * 0.5);
+                    const nudge = Math.max(iconSize * 0.45, 20);
+                    const sign = (cursorPos - center) > 0 ? 1 : -1;
+                    btn.magnificationScale = scale;
+                    btn.magnificationOffset = -sign * nudge * (scale - 1.0) / zoomRange;
+                }
+            }
+        }
+
+        Timer {
+            id: magnificationTimer
+            interval: 50
+            repeat: true
+            running: dock.reveal && (magnificationActive || _magUnsettled)
+            onTriggered: dock._updateMagTargets()
+        }
 
         // ─── Window thumbnail preview ───
         // Wrapped in a Loader so the DockPreview PanelWindow is only created when
