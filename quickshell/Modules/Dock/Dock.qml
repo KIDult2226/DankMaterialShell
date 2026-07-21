@@ -452,16 +452,11 @@ Variants {
         // failure). Mirrors `leftSpring`/`rightSpring` in the reference.
         readonly property real edgeRange: Math.max(SettingsData.dockIconSize * 0.9, 40)
         readonly property real edgeMax: Math.max(SettingsData.dockIconSize * (SettingsData.dockMagnificationFactor - 1.0), 40)
-        // Pre-expansion reference size. Uses dockApps (stable) rather than
-        // dockMouseArea.width/height which depends on dockBackground ->
-        // mag*Expansion, creating a binding loop that freezes DMS.
-        readonly property real _restWidth: dock.isVertical ? 0 : 500
-        readonly property real _restHeight: dock.isVertical ? 500 : 0
         // 0..edgeRange from the left/right edge → 0..edgeMax expansion.
         readonly property real _leftEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, mouseDockX)) : 0
-        readonly property real _rightEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, Math.max(0, _restWidth - mouseDockX))) : 0
+        readonly property real _rightEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, dockMouseArea.width - mouseDockX)) : 0
         readonly property real _topEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, mouseDockY)) : 0
-        readonly property real _bottomEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, Math.max(0, _restHeight - mouseDockY))) : 0
+        readonly property real _bottomEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, dockMouseArea.height - mouseDockY)) : 0
         property real magLeftExpansion: 0
         property real magRightExpansion: 0
         property real magTopExpansion: 0
@@ -479,83 +474,6 @@ Variants {
         Behavior on magRightExpansion { SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 } }
         Behavior on magTopExpansion { SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 } }
         Behavior on magBottomExpansion { SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 } }
-
-        // ─── Dock magnification: cosine wave target calculator ───
-        // The timer pushes pure targets (no lerp) to each button.
-        // Behavior+SpringAnimation on each button interpolates from the
-        // current animated value toward the latest target. Timer runs at
-        // 20 Hz so the spring (τ≈61ms) has time to move between updates.
-        property bool _magUnsettled: false
-        function _getMagButtons() {
-            if (!dockApps.children[0]) return [];
-            const layoutItem = dockApps.children[0];
-            const flowLayout = layoutItem.children[0];
-            let repeater = null;
-            for (var i = 0; i < flowLayout.children.length; i++) {
-                const child = flowLayout.children[i];
-                if (child && typeof child.count !== "undefined" && typeof child.itemAt === "function") { repeater = child; break; }
-            }
-            if (!repeater) return [];
-            const items = [];
-            for (var j = 0; j < repeater.count; j++) {
-                const item = repeater.itemAt(j);
-                const btn = item && item.dockButton ? item.dockButton : item;
-                if (btn && btn.magnificationScale !== undefined && btn.visible !== false)
-                    items.push(btn);
-            }
-            return items;
-        }
-        function _updateMagTargets() {
-            const items = _getMagButtons();
-            if (items.length === 0) return;
-
-            if (!magnificationActive) {
-                _magUnsettled = true;
-                let allSettled = true;
-                for (let i = 0; i < items.length; i++) {
-                    const btn = items[i];
-                    // The spring is doing the animation; just check if it settled.
-                    if (Math.abs(btn.magnificationScale - 1.0) >= 0.005 || Math.abs(btn.magnificationOffset) >= 0.5)
-                        allSettled = false;
-                    else {
-                        btn.magnificationScale = 1.0; btn.magnificationOffset = 0.0;
-                    }
-                }
-                if (allSettled) _magUnsettled = false;
-                return;
-            }
-            _magUnsettled = true;
-
-            const iconSize = SettingsData.dockIconSize;
-            const radius = Math.max(iconSize * 2.3, 110);
-            const zoomRange = SettingsData.dockMagnificationFactor - 1.0;
-            const cursorPos = isVertical ? mouseDockY : mouseDockX;
-
-            for (let i = 0; i < items.length; i++) {
-                const btn = items[i];
-                const mapped = btn.parent ? btn.parent.mapToItem(dockMouseArea, btn.x, btn.y) : btn.mapToItem(dockMouseArea, 0, 0);
-                const center = isVertical ? (mapped.y + btn.height / 2) : (mapped.x + btn.width / 2);
-                const dist = Math.abs(cursorPos - center);
-                if (dist >= radius) {
-                    btn.magnificationScale = 1.0;
-                    btn.magnificationOffset = 0.0;
-                } else {
-                    const scale = 1.0 + zoomRange * ((Math.cos(dist * Math.PI / radius) + 1) * 0.5);
-                    const nudge = Math.max(iconSize * 0.45, 20);
-                    const sign = (cursorPos - center) > 0 ? 1 : -1;
-                    btn.magnificationScale = scale;
-                    btn.magnificationOffset = -sign * nudge * (scale - 1.0) / zoomRange;
-                }
-            }
-        }
-
-        Timer {
-            id: magnificationTimer
-            interval: 50
-            repeat: true
-            running: dock.reveal && (magnificationActive || _magUnsettled)
-            onTriggered: dock._updateMagTargets()
-        }
 
 
         // ─── Window thumbnail preview ───
