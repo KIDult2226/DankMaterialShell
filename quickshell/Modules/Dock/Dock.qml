@@ -511,8 +511,7 @@ Variants {
 
             const iconSize = SettingsData.dockIconSize;
             const radius = Math.max(iconSize * 2.3, 110);
-            const zoomRange = (SettingsData.dockMagnificationFactor - 1.0) * 2.0;
-            const nudge = Math.max(iconSize * 0.45, 20);
+            const nudge = Math.max(iconSize * 0.3, 15);
             const smoothFactor = 0.45;
             const cursorPos = isVertical ? mouseDockY : mouseDockX;
 
@@ -545,8 +544,9 @@ Variants {
                 let tScale = 1.0;
                 let tOffset = 0;
                 if (absDist < radius) {
-                    tScale = 1.0 + zoomRange * ((Math.cos(absDist * Math.PI / radius) + 1) * 0.5);
-                    tOffset = -(dist / radius) * nudge;
+                    const cosFactor = (Math.cos(absDist * Math.PI / radius) + 1) * 0.5;
+                    tScale = 1.0 + zoomRange * cosFactor;
+                    tOffset = -(dist / radius) * nudge * cosFactor;
                 }
                 const pScale = btn.magnificationScale;
                 const pOffset = btn.magnificationOffset;
