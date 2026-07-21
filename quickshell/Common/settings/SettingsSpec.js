@@ -420,6 +420,8 @@ var SPEC = {
     dockBorderColor: { def: "surfaceText" },
     dockBorderOpacity: { def: 1.0, coerce: percentToUnit },
     dockBorderThickness: { def: 1 },
+    dockMagnificationEnabled: { def: false },
+    dockMagnificationFactor: { def: 1.4 },
     dockIsolateDisplays: { def: false },
     dockLauncherEnabled: { def: false },
     dockLauncherLogoMode: { def: "apps" },
