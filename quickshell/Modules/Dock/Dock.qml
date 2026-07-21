@@ -455,8 +455,8 @@ Variants {
         // Pre-expansion reference size. Uses dockApps (stable) rather than
         // dockMouseArea.width/height which depends on dockBackground ->
         // mag*Expansion, creating a binding loop that freezes DMS.
-        readonly property real _restWidth: dock.isVertical ? 0 : (dockApps.implicitWidth + SettingsData.dockSpacing * 2)
-        readonly property real _restHeight: dock.isVertical ? (dockApps.implicitHeight + SettingsData.dockSpacing * 2) : 0
+        readonly property real _restWidth: dock.isVertical ? 0 : 500
+        readonly property real _restHeight: dock.isVertical ? 500 : 0
         // 0..edgeRange from the left/right edge → 0..edgeMax expansion.
         readonly property real _leftEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, mouseDockX)) : 0
         readonly property real _rightEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, Math.max(0, _restWidth - mouseDockX))) : 0
