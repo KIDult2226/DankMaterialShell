@@ -12,7 +12,7 @@ Item {
     id: root
 
     clip: false
-    scale: SettingsData.dockMagnificationEnabled && mouseArea.containsMouse ? SettingsData.dockMagnificationFactor : 1.0
+    scale: mouseArea.containsMouse ? 1.4 : 1.0
     Behavior on scale {
         NumberAnimation { duration: Anims.durShort; easing.type: Easing.BezierSpline; easing.bezierCurve: Anims.emphasizedAccel }
     }
