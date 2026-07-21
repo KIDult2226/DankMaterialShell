@@ -17,7 +17,6 @@ Item {
     property real iconSize: 40
     property bool usesOverlayLayer: false
     property int draggedIndex: -1
-    property var dockRef: null
     property int dropTargetIndex: -1
     property bool suppressShiftAnimation: false
     property int maxVisibleApps: SettingsData.dockMaxVisibleApps
