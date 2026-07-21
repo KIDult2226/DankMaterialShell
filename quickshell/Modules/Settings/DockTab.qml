@@ -255,12 +255,15 @@ Item {
                     visible: SettingsData.dockMagnificationEnabled
 
                     SettingsSliderRow {
-                        maximum: 2.0
-                        value: SettingsData.dockMagnificationFactor
-                        defaultValue: 1.4
-                        unit: ""
-                        tags: ["dock", "magnification", "factor", "zoom"]
-                        onSliderValueChanged: newValue => SettingsData.set("dockMagnificationFactor", newValue)
+                        text: I18n.tr("Enlargement %")
+                        minimum: 120
+                        maximum: 250
+                        step: 10
+                        value: Math.round(SettingsData.dockMagnificationFactor * 100)
+                        defaultValue: 140
+                        unit: "%"
+                        tags: ["dock", "magnification", "factor", "zoom", "enlarge"]
+                        onSliderValueChanged: newValue => SettingsData.set("dockMagnificationFactor", newValue / 100)
                     }
                 }
             }
