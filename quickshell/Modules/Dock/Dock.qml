@@ -452,17 +452,15 @@ Variants {
         // failure). Mirrors `leftSpring`/`rightSpring` in the reference.
         readonly property real edgeRange: Math.max(SettingsData.dockIconSize * 0.9, 40)
         readonly property real edgeMax: Math.max(SettingsData.dockIconSize * (SettingsData.dockMagnificationFactor - 1.0), 40)
-        // 0..edgeRange from the left/right edge → 0..edgeMax expansion.
+        // edgeDist uses dockApps' natural (pre-expansion) implicit size as the
+        // reference width/height — NOT dockMouseArea.width which itself depends on
+        // dockBackground.width → mag*Expansion (binding loop would freeze DMS).
+        readonly property real _restWidth: dock.isVertical ? 0 : (dockApps.implicitWidth + SettingsData.dockSpacing * 2)
+        readonly property real _restHeight: dock.isVertical ? (dockApps.implicitHeight + SettingsData.dockSpacing * 2) : 0
         readonly property real _leftEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, mouseDockX)) : 0
-        readonly property real _rightEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, dockMouseArea.width - mouseDockX)) : 0
+        readonly property real _rightEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, Math.max(0, _restWidth - mouseDockX))) : 0
         readonly property real _topEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, mouseDockY)) : 0
-        readonly property real _bottomEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, dockMouseArea.height - mouseDockY)) : 0
-        property real magLeftExpansion: 0
-        property real magRightExpansion: 0
-        property real magTopExpansion: 0
-        property real magBottomExpansion: 0
-        // Bind targets; the Behavior's SpringAnimation smooths the tracking
-        // so the background grows/shrinks with the same spring feel as the
+        readonly property real _bottomEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, Math.max(0, _restHeight - mouseDockY))) : 0
         // icons. onXxxEdgeDistChanged rewrites the target each mouse move,
         // which redirects the running spring without resetting it (Qt
         // Behavior semantics) — identical to framer-motion's useSpring.
