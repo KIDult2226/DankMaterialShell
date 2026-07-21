@@ -12,7 +12,7 @@ Item {
     id: root
 
     clip: false
-    scale: root.magnificationScale
+    scale: 1.5
     Behavior on scale {
         NumberAnimation { duration: Anims.durShort; easing.type: Easing.BezierSpline; easing.bezierCurve: Anims.emphasizedAccel }
     }
