@@ -455,6 +455,8 @@ Item {
                 x: {
                     if (dragging && !isVertical)
                         return dragAxisOffset;
+                    if (SettingsData.dockMagnificationEnabled)
+                        return 0;
                     if (!dragging && isVertical)
                         return hoverAnimOffset;
                     return 0;
@@ -462,6 +464,8 @@ Item {
                 y: {
                     if (dragging && isVertical)
                         return dragAxisOffset;
+                    if (SettingsData.dockMagnificationEnabled)
+                        return 0;
                     if (!dragging && !isVertical)
                         return hoverAnimOffset;
                     return 0;

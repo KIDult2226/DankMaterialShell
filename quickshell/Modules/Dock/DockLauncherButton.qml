@@ -212,8 +212,8 @@ Item {
                 y: root.isVertical ? root.magnificationOffset : 0
             },
             Translate {
-                x: dragging && !isVertical ? dragAxisOffset : (!dragging && isVertical ? hoverAnimOffset : 0)
-                y: dragging && isVertical ? dragAxisOffset : (!dragging && !isVertical ? hoverAnimOffset : 0)
+                x: dragging && !isVertical ? dragAxisOffset : (SettingsData.dockMagnificationEnabled ? 0 : (!dragging && isVertical ? hoverAnimOffset : 0))
+                y: dragging && isVertical ? dragAxisOffset : (SettingsData.dockMagnificationEnabled ? 0 : (!dragging && !isVertical ? hoverAnimOffset : 0))
             }
         ]
 

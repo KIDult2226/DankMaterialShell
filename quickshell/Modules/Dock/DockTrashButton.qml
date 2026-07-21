@@ -129,8 +129,8 @@ Item {
                 y: root.isVertical ? root.magnificationOffset : 0
             },
             Translate {
-                x: isVertical ? hoverAnimOffset : 0
-                y: isVertical ? 0 : hoverAnimOffset
+                x: SettingsData.dockMagnificationEnabled ? 0 : (isVertical ? hoverAnimOffset : 0)
+                y: SettingsData.dockMagnificationEnabled ? 0 : (isVertical ? 0 : hoverAnimOffset)
             }
         ]
 
