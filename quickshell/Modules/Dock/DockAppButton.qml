@@ -12,6 +12,10 @@ Item {
     id: root
 
     clip: false
+    scale: root.magnificationScale
+    Behavior on scale {
+        NumberAnimation { duration: Anims.durShort; easing.type: Easing.BezierSpline; easing.bezierCurve: Anims.emphasizedAccel }
+    }
     property var appData
     property var contextMenu: null
     property var dockApps: null
@@ -30,6 +34,7 @@ Item {
     property bool showTooltip: mouseArea.containsMouse && !dragging
     property var cachedDesktopEntry: null
     property real actualIconSize: 40
+    readonly property real magnificationScale: SettingsData.dockMagnificationEnabled && isHovered ? SettingsData.dockMagnificationFactor : 1.0
     property bool shouldShowIndicator: {
         if (!appData)
             return false;
