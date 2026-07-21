@@ -430,49 +430,145 @@ Variants {
 
         property real animationHeadroom: Math.ceil(SettingsData.dockIconSize * 0.35)
 
-        // ─── Dock magnification (per-button spring-tracked targets) ───
-        // Each dock button computes its own scale/offset target from the
-        // cursor position (a pure binding, matching the framer-motion
-        // reference: https://buildui.com/recipes/magnified-dock) and a
-        // per-button SpringAnimation interpolates toward that target. No
-        // global timer writes the animated values, so the springs never
-        // fight a per-frame retarget and cannot diverge.
+        // ─── Dock magnification (distance-based cosine wave, dhruva-style) ───
         property real mouseDockX: -9999
         property real mouseDockY: -9999
-        // True while the cursor is over the dock surface.
+        // True while the cursor is over the dock. The shrink-back path is driven by
+        // _magnificationUnsettled below so the timer keeps running until icons settle.
         property bool magnificationActive: SettingsData.dockMagnificationEnabled && dockMouseArea.containsMouse && dock.reveal
+        // Set true on exit; cleared once every icon has eased back to scale 1.0.
+        property bool _magnificationUnsettled: false
         property bool _mouseExited: true
         property real lastHideTime: 0
+        // Extra space the dock background grows to fit magnified icons without clipping.
+        readonly property real magnificationExpansion: SettingsData.dockMagnificationEnabled ? SettingsData.dockIconSize * (SettingsData.dockMagnificationFactor - 1.0) : 0
 
-        // Cursor-relative edge expansion. The dock background widens
-        // asymmetrically: when the cursor is within EDGE_RANGE of the left
-        // edge the left side grows up to EDGE_MAX (and symmetrically right),
-        // so magnified+shifted icons near either end never overflow the
-        // layer-shell surface (the original "icons enlarge and disappear"
-        // failure). Mirrors `leftSpring`/`rightSpring` in the reference.
-        readonly property real edgeRange: Math.max(SettingsData.dockIconSize * 0.9, 40)
-        readonly property real edgeMax: Math.max(SettingsData.dockIconSize * (SettingsData.dockMagnificationFactor - 1.0), 40)
-        // edgeDist uses dockApps' natural (pre-expansion) implicit size as the
-        // reference width/height — NOT dockMouseArea.width which itself depends on
-        // dockBackground.width → mag*Expansion (binding loop would freeze DMS).
-        readonly property real _restWidth: dock.isVertical ? 0 : 500
-        readonly property real _restHeight: dock.isVertical ? 500 : 0
-        readonly property real _leftEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, mouseDockX)) : 0
-        readonly property real _rightEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, Math.max(0, _restWidth - mouseDockX))) : 0
-        readonly property real _topEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, mouseDockY)) : 0
-        readonly property real _bottomEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, Math.max(0, _restHeight - mouseDockY))) : 0
-        // icons. onXxxEdgeDistChanged rewrites the target each mouse move,
-        // which redirects the running spring without resetting it (Qt
-        // Behavior semantics) — identical to framer-motion's useSpring.
-        on_LeftEdgeDistChanged: magLeftExpansion = (_leftEdgeDist / edgeRange) * edgeMax
-        on_RightEdgeDistChanged: magRightExpansion = (_rightEdgeDist / edgeRange) * edgeMax
-        on_TopEdgeDistChanged: magTopExpansion = (_topEdgeDist / edgeRange) * edgeMax
-        on_BottomEdgeDistChanged: magBottomExpansion = (_bottomEdgeDist / edgeRange) * edgeMax
-        Behavior on magLeftExpansion { SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 } }
-        Behavior on magRightExpansion { SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 } }
-        Behavior on magTopExpansion { SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 } }
-        Behavior on magBottomExpansion { SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 } }
+        function getDockItems() {
+            if (!dockApps.children[0])
+                return [];
+            const layoutItem = dockApps.children[0];
+            const flowLayout = layoutItem.children[0];
+            let repeater = null;
+            for (var i = 0; i < flowLayout.children.length; i++) {
+                const child = flowLayout.children[i];
+                if (child && typeof child.count !== "undefined" && typeof child.itemAt === "function") {
+                    repeater = child;
+                    break;
+                }
+            }
+            if (!repeater)
+                return [];
+            const items = [];
+            for (var j = 0; j < repeater.count; j++) {
+                const item = repeater.itemAt(j);
+                // Accept either a wrapper exposing .dockButton or the button itself.
+                const btn = item && item.dockButton ? item.dockButton : item;
+                if (btn && btn.magnificationScale !== undefined && btn.visible !== false)
+                    items.push(btn);
+            }
+            return items;
+        }
 
+        function updateMagnification() {
+            const items = getDockItems();
+            if (items.length === 0)
+                return;
+
+            // Idle / exit path: smoothly shrink back to 1.0, then stop the timer.
+            if (!magnificationActive) {
+                dock._magnificationUnsettled = true;
+                let allSettled = true;
+                for (let i = 0; i < items.length; i++) {
+                    const btn = items[i];
+                    const prev = btn.magnificationScale;
+                    // Gentler ease-back (0.18) so icons recede softly instead of snapping.
+                    btn.magnificationScale = prev + (1.0 - prev) * 0.18;
+                    btn.magnificationOffset = btn.magnificationOffset * 0.78;
+                    if (Math.abs(btn.magnificationScale - 1.0) >= 0.005 || Math.abs(btn.magnificationOffset) >= 0.5)
+                        allSettled = false;
+                    else {
+                        btn.magnificationScale = 1.0;
+                        btn.magnificationOffset = 0.0;
+                    }
+                }
+                if (allSettled)
+                    dock._magnificationUnsettled = false;
+                return;
+            }
+            dock._magnificationUnsettled = true;
+
+            const iconSize = SettingsData.dockIconSize;
+            const radius = iconSize * 3.5;
+            const zoomRange = (SettingsData.dockMagnificationFactor - 1.0) * 2.0;
+            const piOverRadius = Math.PI / radius;
+            const smoothFactor = 0.45;
+            const cursorPos = isVertical ? mouseDockY : mouseDockX;
+
+            const scales = [];
+            const centers = [];
+            const widths = [];
+
+            for (let i = 0; i < items.length; i++) {
+                const btn = items[i];
+                // Map from btn's parent (Flow layout) using btn's position within it.
+                // This avoids the magnification transform feedback loop — we get the
+                // untransformed layout position, not the visually-shifted one.
+                const mapped = btn.parent ? btn.parent.mapToItem(dockMouseArea, btn.x, btn.y) : btn.mapToItem(dockMouseArea, 0, 0);
+                const center = isVertical ? (mapped.y + btn.height / 2) : (mapped.x + btn.width / 2);
+                centers.push(center);
+                widths.push(isVertical ? btn.height : btn.width);
+
+                const dist = Math.abs(cursorPos - center);
+                if (dist >= radius) {
+                    scales.push(1.0);
+                } else {
+                    scales.push(1.0 + zoomRange * ((Math.cos(dist * piOverRadius) + 1) * 0.5));
+                }
+            }
+
+            // Neighbor propagation: icons push outward as they grow.
+            const offsets = new Array(items.length).fill(0);
+            let cursorIdx = 0;
+            let minDist = Infinity;
+            for (let i = 0; i < centers.length; i++) {
+                const d = Math.abs(cursorPos - centers[i]);
+                if (d < minDist) {
+                    minDist = d;
+                    cursorIdx = i;
+                }
+            }
+
+            for (let i = cursorIdx - 1; i >= 0; i--) {
+                const extra = widths[i + 1] * (scales[i + 1] - 1) / 2 + widths[i] * (scales[i] - 1) / 2;
+                offsets[i] = offsets[i + 1] - extra;
+            }
+            for (let i = cursorIdx + 1; i < items.length; i++) {
+                const extra = widths[i - 1] * (scales[i - 1] - 1) / 2 + widths[i] * (scales[i] - 1) / 2;
+                offsets[i] = offsets[i - 1] + extra;
+            }
+
+            for (let i = 0; i < items.length; i++) {
+                const btn = items[i];
+                if (btn.magnificationScale === undefined || btn.magnificationOffset === undefined)
+                    continue;
+                const tScale = scales[i];
+                const tOffset = offsets[i];
+                const pScale = btn.magnificationScale;
+                const pOffset = btn.magnificationOffset;
+                btn.magnificationScale = pScale + (tScale - pScale) * smoothFactor;
+                btn.magnificationOffset = pOffset + (tOffset - pOffset) * smoothFactor;
+            }
+        }
+
+        Timer {
+            id: magnificationTimer
+            interval: 16
+            repeat: true
+            // Runs while the cursor is over the dock, and also keeps running after
+            // exit until every icon has eased back to scale 1.0 (settle path).
+            running: dock.reveal && (magnificationActive || _magnificationUnsettled)
+            onTriggered: dock.updateMagnification()
+        }
 
         // ─── Window thumbnail preview ───
         // Wrapped in a Loader so the DockPreview PanelWindow is only created when
@@ -528,7 +624,7 @@ Variants {
                     SettingsData.dockPosition === SettingsData.Position.Bottom ? "bottom" :
                     SettingsData.dockPosition === SettingsData.Position.Top ? "top" :
                     SettingsData.dockPosition === SettingsData.Position.Left ? "left" : "right",
-                    isVertical ? (SettingsData.dockPosition === SettingsData.Position.Left ? dock.magLeftExpansion : dock.magRightExpansion) : (SettingsData.dockPosition === SettingsData.Position.Bottom ? dock.magTopExpansion : dock.magBottomExpansion));
+                    dock.magnificationExpansion);
 
         }
 
@@ -738,6 +834,7 @@ Variants {
                     dock.mouseDockX = mouse.x;
                     dock.mouseDockY = mouse.y;
                     dock._mouseExited = false;
+                    magnificationTimer.running = true;
                 }
                 onContainsMouseChanged: {
                     if (!containsMouse) {
@@ -849,8 +946,8 @@ Variants {
                         anchors.leftMargin: dock.isVertical && SettingsData.dockPosition === SettingsData.Position.Left ? dockGeometry.bodyEdgeMargin : 0
                         anchors.rightMargin: dock.isVertical && SettingsData.dockPosition === SettingsData.Position.Right ? dockGeometry.bodyEdgeMargin : 0
 
-                        implicitWidth: dock.isVertical ? (dockApps.implicitHeight + SettingsData.dockSpacing * 2 + dock.magTopExpansion + dock.magBottomExpansion) : (dockApps.implicitWidth + SettingsData.dockSpacing * 2 + dock.magLeftExpansion + dock.magRightExpansion)
-                        implicitHeight: dock.isVertical ? (dockApps.implicitWidth + SettingsData.dockSpacing * 2 + dock.magLeftExpansion + dock.magRightExpansion) : (dockApps.implicitHeight + SettingsData.dockSpacing * 2 + dock.magTopExpansion + dock.magBottomExpansion)
+                        implicitWidth: dock.isVertical ? (dockApps.implicitHeight + SettingsData.dockSpacing * 2) : (dockApps.implicitWidth + SettingsData.dockSpacing * 2 + dock.magnificationExpansion)
+                        implicitHeight: dock.isVertical ? (dockApps.implicitWidth + SettingsData.dockSpacing * 2 + dock.magnificationExpansion) : (dockApps.implicitHeight + SettingsData.dockSpacing * 2)
                         width: implicitWidth
                         height: implicitHeight
 
@@ -984,7 +1081,6 @@ Variants {
 
                     DockApps {
                         id: dockApps
-                        dockRef: dock
 
                         anchors.top: !dock.isVertical ? (SettingsData.dockPosition === SettingsData.Position.Top ? dockBackground.top : undefined) : undefined
                         anchors.bottom: !dock.isVertical ? (SettingsData.dockPosition === SettingsData.Position.Bottom ? dockBackground.bottom : undefined) : undefined
