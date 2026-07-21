@@ -3,6 +3,8 @@ BINARY_NAME_INSTALL=dankinstall
 SOURCE_DIR=cmd/dms
 SOURCE_DIR_INSTALL=cmd/dankinstall
 BUILD_DIR=bin
+SHELL_SRC=../quickshell
+EMBED_DIR=internal/shellembed/dist
 PREFIX ?= /usr/local
 INSTALL_DIR=$(PREFIX)/bin
 
@@ -21,17 +23,46 @@ BUILD_LDFLAGS=-ldflags='-s -w -X main.Version=$(VERSION) -X main.buildTime=$(BUI
 
 # Architecture to build for dist target (amd64, arm64, or all)
 ARCH ?= all
+# Target OSes for dist builds
+DIST_OSES ?= linux freebsd
 
-.PHONY: all build dankinstall dist clean install install-all install-dankinstall uninstall uninstall-all uninstall-dankinstall install-config uninstall-config test fmt vet deps print-version help
+ifeq ($(ARCH),all)
+DIST_ARCHS = amd64 arm64
+else
+DIST_ARCHS = $(ARCH)
+endif
+
+.PHONY: all build sync-shell dankinstall dist clean install install-all install-dankinstall uninstall uninstall-all uninstall-dankinstall install-config uninstall-config test fmt vet deps print-version help
 
 # Default target
 all: build
 
+# Copy the quickshell UI into the embed dir (gitignored) so tagged builds
+# can bake it into the binary. Dev-only files are stripped; scripts/ is kept
+# minus its dev entries, since Theme.qml and BluetoothService.qml run
+# gtk.sh/qt.sh/bluez-card-profile.lua out of the resolved shell dir.
+# tar -h dereferences the DankCommon submodule symlink; go:embed rejects
+# symlinks. .qmlls.ini is excluded at copy time: it's a symlink into the
+# quickshell runtime VFS and dereferencing it fails whenever the shell isn't
+# running.
+sync-shell:
+	@test -e $(SHELL_SRC)/DankCommon/Widgets/DankIcon.qml || { echo "DankCommon missing: run git submodule update --init"; exit 1; }
+	@rm -rf $(EMBED_DIR)
+	@mkdir -p $(EMBED_DIR)
+	@tar -C $(SHELL_SRC) --exclude=.qmlls.ini -chf - . | tar -C $(EMBED_DIR) -xf -
+	@rm -rf $(EMBED_DIR)/.git* $(EMBED_DIR)/.github
+	@find $(EMBED_DIR) -type d \( -name .claude -o -name .vscode \) -prune -exec rm -rf {} +
+	@rm -f $(EMBED_DIR)/AGENTS.md $(EMBED_DIR)/qmlformat-all.sh
+	@rm -f $(EMBED_DIR)/scripts/i18nsync.py $(EMBED_DIR)/scripts/build-vscode-vsix.sh $(EMBED_DIR)/scripts/qmllint-entrypoints.sh
+	@rm -f $(EMBED_DIR)/scripts/spam-notifications.sh $(EMBED_DIR)/scripts/verify-notifications.sh
+	@rm -f $(EMBED_DIR)/translations/*.py $(EMBED_DIR)/translations/WORKFLOW.md
+	@cd $(EMBED_DIR) && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -c1-16 > .dankrev
+
 # Build the main binary (dms)
-build:
+build: sync-shell
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 $(GO) build $(BUILD_LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./$(SOURCE_DIR)
+	CGO_ENABLED=0 $(GO) build -tags withshell $(BUILD_LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./$(SOURCE_DIR)
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
 dankinstall:
@@ -40,26 +71,18 @@ dankinstall:
 	CGO_ENABLED=0 $(GO) build $(BUILD_LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME_INSTALL) ./$(SOURCE_DIR_INSTALL)
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME_INSTALL)"
 
-# Build distro binaries for amd64 and arm64 (Linux only, no update/greeter support)
-dist:
-ifeq ($(ARCH),all)
-	@echo "Building $(BINARY_NAME) for distribution (amd64 and arm64)..."
+# Build distro binaries (no update/greeter support) for each DIST_OSES/DIST_ARCHS pair
+dist: sync-shell
+	@echo "Building $(BINARY_NAME) for distribution ($(DIST_OSES) x $(DIST_ARCHS))..."
 	@mkdir -p $(BUILD_DIR)
-	@echo "Building for linux/amd64..."
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -tags distro_binary $(BUILD_LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./$(SOURCE_DIR)
-	@echo "Building for linux/arm64..."
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GO) build -tags distro_binary $(BUILD_LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 ./$(SOURCE_DIR)
-	@echo "Distribution builds complete:"
-	@echo "  $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64"
-	@echo "  $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64"
-else
-	@echo "Building $(BINARY_NAME) for distribution ($(ARCH))..."
-	@mkdir -p $(BUILD_DIR)
-	@echo "Building for linux/$(ARCH)..."
-	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) $(GO) build -tags distro_binary $(BUILD_LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-$(ARCH) ./$(SOURCE_DIR)
-	@echo "Distribution build complete:"
-	@echo "  $(BUILD_DIR)/$(BINARY_NAME)-linux-$(ARCH)"
-endif
+	@for os in $(DIST_OSES); do \
+		for arch in $(DIST_ARCHS); do \
+			echo "Building for $$os/$$arch..."; \
+			CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch $(GO) build -tags 'distro_binary withshell' $(BUILD_LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-$$os-$$arch ./$(SOURCE_DIR) || exit 1; \
+			echo "  $(BUILD_DIR)/$(BINARY_NAME)-$$os-$$arch"; \
+		done; \
+	done
+	@echo "Distribution builds complete"
 
 build-all: build dankinstall
 
@@ -99,7 +122,7 @@ uninstall-dankinstall:
 
 clean:
 	@echo "Cleaning build artifacts..."
-	@rm -rf $(BUILD_DIR)
+	@rm -rf $(BUILD_DIR) $(EMBED_DIR)
 	@echo "Clean complete"
 
 test:
@@ -141,10 +164,11 @@ print-version:
 help:
 	@echo "Available targets:"
 	@echo "  all                 - Build the main binary (dms) (default)"
-	@echo "  build               - Build the main binary (dms)"
+	@echo "  build               - Build the main binary (dms) with the embedded UI"
+	@echo "  sync-shell          - Copy quickshell/ into the embed dir (runs before tagged builds)"
 	@echo "  dankinstall         - Build dankinstall binary"
-	@echo "  dist                - Build dms for linux amd64/arm64 (no update/greeter)"
-	@echo "                        Use ARCH=amd64 or ARCH=arm64 to build only one"
+	@echo "  dist                - Build dms for linux/freebsd amd64/arm64 (no update/greeter)"
+	@echo "                        Use ARCH=amd64 or ARCH=arm64 and/or DIST_OSES=linux to narrow"
 	@echo "  build-all           - Build both binaries"
 	@echo "  install             - Install dms to $(INSTALL_DIR)"
 	@echo "  install-all         - Install both dms and dankinstall to $(INSTALL_DIR)"

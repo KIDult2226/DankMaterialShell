@@ -18,7 +18,7 @@ SHELL_INSTALL_DIR=$(DATA_DIR)/quickshell/dms
 ASSETS_DIR=assets
 APPLICATIONS_DIR=$(DATA_DIR)/applications
 
-.PHONY: all build clean lint-qml install install-bin install-shell install-completions install-systemd install-icon install-desktop uninstall uninstall-bin uninstall-shell uninstall-completions uninstall-systemd uninstall-icon uninstall-desktop help
+.PHONY: all build dev run clean lint-qml install install-bin install-shell install-completions install-systemd install-icon install-desktop uninstall uninstall-bin uninstall-shell uninstall-completions uninstall-systemd uninstall-icon uninstall-desktop help
 
 all: build
 
@@ -26,6 +26,12 @@ build:
 	@echo "Building $(BINARY_NAME)..."
 	@$(MAKE) -C $(CORE_DIR) build
 	@echo "Build complete"
+
+dev:
+	@$(MAKE) -C $(CORE_DIR) dev
+
+run: dev
+	@$(BUILD_DIR)/$(BINARY_NAME) run -c $(CURDIR)/$(SHELL_DIR)
 
 clean:
 	@echo "Cleaning build artifacts..."
@@ -35,6 +41,12 @@ clean:
 lint-qml:
 	@./quickshell/scripts/qmllint-entrypoints.sh
 
+# Pull the latest dank-qml-common and pin it everywhere it is consumed
+# (submodule pointer + nix flake input). Commit both in one change.
+update-common:
+	git submodule update --remote --merge dank-qml-common
+	nix --extra-experimental-features 'nix-command flakes' flake update dank-qml-common
+
 # Installation targets
 install-bin:
 	@echo "Installing $(BINARY_NAME) to $(INSTALL_DIR)..."
@@ -43,8 +55,9 @@ install-bin:
 
 install-shell:
 	@echo "Installing shell files to $(SHELL_INSTALL_DIR)..."
+	@test -e $(SHELL_DIR)/DankCommon/Widgets/DankIcon.qml || { echo "DankCommon missing: run git submodule update --init"; exit 1; }
 	@mkdir -p $(SHELL_INSTALL_DIR)
-	@cp -r $(SHELL_DIR)/* $(SHELL_INSTALL_DIR)/
+	@cp -rL $(SHELL_DIR)/* $(SHELL_INSTALL_DIR)/
 	@rm -rf $(SHELL_INSTALL_DIR)/.git* $(SHELL_INSTALL_DIR)/.github
 	@echo "Shell files installed"
 
@@ -59,6 +72,9 @@ install-completions:
 	@echo "Shell completions installed"
 
 install-systemd:
+ifneq ($(shell uname),Linux)
+	@echo "Skipping systemd user service (non-Linux); start the shell from your compositor config with 'dms run'"
+else
 	@echo "Installing systemd user service..."
 	@mkdir -p $(SYSTEMD_USER_DIR)
 	@if [ -n "$(SUDO_USER)" ]; then chown -R $(SUDO_USER):"$(id -gn $SUDO_USER)" $(SYSTEMD_USER_DIR); fi
@@ -66,6 +82,7 @@ install-systemd:
 	@chmod 644 $(SYSTEMD_USER_DIR)/dms.service
 	@if [ -n "$(SUDO_USER)" ]; then chown $(SUDO_USER):"$(id -gn $SUDO_USER)" $(SYSTEMD_USER_DIR)/dms.service; fi
 	@echo "Systemd service installed to $(SYSTEMD_USER_DIR)/dms.service"
+endif
 
 install-icon:
 	@echo "Installing icon..."
