@@ -236,35 +236,6 @@ Item {
 
             SettingsCard {
                 width: parent.width
-                iconName: "zoom_in"
-                title: "Icon Magnification"
-                settingKey: "dockMagnification"
-
-                SettingsToggleRow {
-                    settingKey: "dockMagnificationEnabled"
-                    tags: ["dock", "magnification", "zoom", "enlarge"]
-                    text: "Enable Magnification"
-                    description: "Enlarge dock icons when hovering over them"
-                    checked: SettingsData.dockMagnificationEnabled
-                    onToggled: checked => SettingsData.set("dockMagnificationEnabled", checked)
-                }
-
-                SettingsSliderRow {
-                    settingKey: "dockMagnificationFactor"
-                    tags: ["dock", "magnification", "scale", "zoom", "size"]
-                    text: "Magnification Scale"
-                    minimum: 1.1
-                    maximum: 2.5
-                    value: SettingsData.dockMagnificationFactor
-                    defaultValue: 1.4
-                    unit: "x"
-                    visible: SettingsData.dockMagnificationEnabled
-                    onSliderValueChanged: newValue => SettingsData.set("dockMagnificationFactor", newValue)
-                }
-            }
-
-            SettingsCard {
-                width: parent.width
                 iconName: "apps"
                 title: I18n.tr("Launcher Button")
                 settingKey: "dockLauncher"
