@@ -474,22 +474,22 @@ Variants {
             if (items.length === 0)
                 return;
 
-            // Idle / exit path: smoothly shrink back to 1.0, then stop the timer.
+            // Idle / exit path: target 1.0/0.0 and let each button's
+            // SpringAnimation settle. Keep the timer running (and thus
+            // _magnificationUnsettled asserted) until every icon reports it
+            // has returned to rest, so the shrink-back stays smooth.
             if (!magnificationActive) {
                 dock._magnificationUnsettled = true;
                 let allSettled = true;
                 for (let i = 0; i < items.length; i++) {
                     const btn = items[i];
-                    const prev = btn.magnificationScale;
-                    // Gentler ease-back (0.18) so icons recede softly instead of snapping.
-                    btn.magnificationScale = prev + (1.0 - prev) * 0.18;
-                    btn.magnificationOffset = btn.magnificationOffset * 0.78;
-                    if (Math.abs(btn.magnificationScale - 1.0) >= 0.005 || Math.abs(btn.magnificationOffset) >= 0.5)
+                    btn.magnificationScale = 1.0;
+                    btn.magnificationOffset = 0.0;
+                    // A spring is "settled" once it's both at the target and
+                    // no longer running. We approximate by checking the
+                    // animated value is within epsilon of target.
+                    if (Math.abs(btn.magnificationScale - 1.0) >= 0.01 || Math.abs(btn.magnificationOffset) >= 0.5)
                         allSettled = false;
-                    else {
-                        btn.magnificationScale = 1.0;
-                        btn.magnificationOffset = 0.0;
-                    }
                 }
                 if (allSettled)
                     dock._magnificationUnsettled = false;
@@ -498,10 +498,12 @@ Variants {
             dock._magnificationUnsettled = true;
 
             const iconSize = SettingsData.dockIconSize;
-            const radius = iconSize * 3.5;
-            const zoomRange = (SettingsData.dockMagnificationFactor - 1.0) * 2.0;
+            // Reach matches the framer-motion reference (DISTANCE=110 for a
+            // 48px icon → ~2.3× icon size). Scales with the user's icon size
+            // so the feel is consistent across configurations.
+            const radius = Math.max(iconSize * 2.3, 110);
+            const zoomRange = SettingsData.dockMagnificationFactor - 1.0;
             const piOverRadius = Math.PI / radius;
-            const smoothFactor = 0.45;
             const cursorPos = isVertical ? mouseDockY : mouseDockX;
 
             const scales = [];
@@ -547,22 +549,22 @@ Variants {
                 offsets[i] = offsets[i - 1] + extra;
             }
 
+            // Push targets; each button's Behavior (SpringAnimation) animates
+            // from the current animated value toward these targets, matching
+            // the framer-motion reference feel.
             for (let i = 0; i < items.length; i++) {
                 const btn = items[i];
-                if (btn.magnificationScale === undefined || btn.magnificationOffset === undefined)
-                    continue;
-                const tScale = scales[i];
-                const tOffset = offsets[i];
-                const pScale = btn.magnificationScale;
-                const pOffset = btn.magnificationOffset;
-                btn.magnificationScale = pScale + (tScale - pScale) * smoothFactor;
-                btn.magnificationOffset = pOffset + (tOffset - pOffset) * smoothFactor;
+                btn.magnificationScale = scales[i];
+                btn.magnificationOffset = offsets[i];
             }
         }
 
         Timer {
             id: magnificationTimer
-            interval: 16
+            interval: 32
+            // The timer only pushes targets to each button's SpringAnimation;
+            // the springs interpolate to each frame themselves, so 30 Hz is
+            // plenty and keeps the per-frame target recompute cheap.
             repeat: true
             // Runs while the cursor is over the dock, and also keeps running after
             // exit until every icon has eased back to scale 1.0 (settle path).
@@ -834,7 +836,10 @@ Variants {
                     dock.mouseDockX = mouse.x;
                     dock.mouseDockY = mouse.y;
                     dock._mouseExited = false;
-                    magnificationTimer.running = true;
+                    // Do NOT set magnificationTimer.running here — it would
+                    // destroy the `running:` binding below. The binding
+                    // (dock.reveal && (magnificationActive || _magnificationUnsettled))
+                    // already starts the timer the instant the cursor enters.
                 }
                 onContainsMouseChanged: {
                     if (!containsMouse) {

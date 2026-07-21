@@ -30,8 +30,18 @@ Item {
     property bool showTooltip: mouseArea.containsMouse && !dragging
     property var cachedDesktopEntry: null
     property real actualIconSize: 40
-    property real magnificationScale: SettingsData.dockMagnificationEnabled && root.isHovered ? SettingsData.dockMagnificationFactor : 1.0
+    // Driven by Dock.qml updateMagnification(); plain properties (not bindings)
+    // so the timer can write targets freely. Each value is spring-animated
+    // toward its target via the Behaviors below (mass=0.1, spring=170,
+    // damping=12) to match the framer-motion reference feel.
+    property real magnificationScale: 1.0
     property real magnificationOffset: 0.0
+    Behavior on magnificationScale {
+        SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 }
+    }
+    Behavior on magnificationOffset {
+        SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 }
+    }
     property bool shouldShowIndicator: {
         if (!appData)
             return false;

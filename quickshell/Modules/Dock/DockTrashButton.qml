@@ -13,7 +13,17 @@ Item {
     property var contextMenu: null
     property var parentDockScreen: null
     property real actualIconSize: 40
-    property real hoverAnimOffset: 0
+    // Magnification is driven by Dock.qml's updateMagnification() timer; these
+    // are plain properties (not bindings) so the timer can write them without a
+    // binding fighting to reset the value. Mirrors DockAppButton.
+    property real magnificationScale: 1.0
+    property real magnificationOffset: 0.0
+    Behavior on magnificationScale {
+        SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 }
+    }
+    Behavior on magnificationOffset {
+        SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 }
+    }
 
     readonly property bool isHovered: mouseArea.containsMouse
     readonly property bool showTooltip: mouseArea.containsMouse
@@ -33,8 +43,12 @@ Item {
         }
     }
 
+    // Disable the bounce nudge while magnification is active — the distance-based
+    // timer drives scale smoothly and bounce would snap on top of it.
     onIsHoveredChanged: {
         if (mouseArea.pressed)
+            return;
+        if (SettingsData.dockMagnificationEnabled)
             return;
         if (!isHovered) {
             bounceAnimation.stop();
@@ -103,10 +117,28 @@ Item {
     Item {
         anchors.fill: parent
 
-        transform: Translate {
-            x: isVertical ? hoverAnimOffset : 0
-            y: isVertical ? 0 : hoverAnimOffset
-        }
+        transform: [
+            Scale {
+                xScale: root.magnificationScale
+                yScale: root.magnificationScale
+                origin.x: root.width / 2
+                origin.y: {
+                    if (SettingsData.dockPosition === SettingsData.Position.Bottom)
+                        return root.height;
+                    if (SettingsData.dockPosition === SettingsData.Position.Top)
+                        return 0;
+                    return root.height / 2;
+                }
+            },
+            Translate {
+                x: root.isVertical ? 0 : root.magnificationOffset
+                y: root.isVertical ? root.magnificationOffset : 0
+            },
+            Translate {
+                x: isVertical ? hoverAnimOffset : 0
+                y: isVertical ? 0 : hoverAnimOffset
+            }
+        ]
 
         Item {
             anchors.centerIn: parent

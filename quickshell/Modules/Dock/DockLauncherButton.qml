@@ -21,7 +21,17 @@ Item {
     property bool isHovered: mouseArea.containsMouse && !dragging
     property bool showTooltip: mouseArea.containsMouse && !dragging
     property real actualIconSize: 40
-
+    // Magnification is driven by Dock.qml's updateMagnification() timer; these
+    // are plain properties (not bindings) so the timer can write them without a
+    // binding fighting to reset the value. Mirrors DockAppButton.
+    property real magnificationScale: 1.0
+    property real magnificationOffset: 0.0
+    Behavior on magnificationScale {
+        SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 }
+    }
+    Behavior on magnificationOffset {
+        SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 }
+    }
     readonly property string tooltipText: I18n.tr("Applications")
 
     readonly property var effectiveLogoColor: {
@@ -33,8 +43,12 @@ Item {
         return override;
     }
 
+    // Disable the bounce nudge while magnification is active — the distance-based
+    // timer drives scale smoothly and bounce would snap on top of it.
     onIsHoveredChanged: {
         if (mouseArea.pressed || dragging)
+            return;
+        if (SettingsData.dockMagnificationEnabled)
             return;
         if (isHovered) {
             exitAnimation.stop();
@@ -186,10 +200,28 @@ Item {
         id: visualContent
         anchors.fill: parent
 
-        transform: Translate {
-            x: dragging && !isVertical ? dragAxisOffset : (!dragging && isVertical ? hoverAnimOffset : 0)
-            y: dragging && isVertical ? dragAxisOffset : (!dragging && !isVertical ? hoverAnimOffset : 0)
-        }
+        transform: [
+            Scale {
+                xScale: root.magnificationScale
+                yScale: root.magnificationScale
+                origin.x: root.width / 2
+                origin.y: {
+                    if (SettingsData.dockPosition === SettingsData.Position.Bottom)
+                        return root.height;
+                    if (SettingsData.dockPosition === SettingsData.Position.Top)
+                        return 0;
+                    return root.height / 2;
+                }
+            },
+            Translate {
+                x: root.isVertical ? 0 : root.magnificationOffset
+                y: root.isVertical ? root.magnificationOffset : 0
+            },
+            Translate {
+                x: dragging && !isVertical ? dragAxisOffset : (!dragging && isVertical ? hoverAnimOffset : 0)
+                y: dragging && isVertical ? dragAxisOffset : (!dragging && !isVertical ? hoverAnimOffset : 0)
+            }
+        ]
 
         Item {
             anchors.centerIn: parent
