@@ -209,7 +209,7 @@ func InitializeWaylandManager() error {
 		wlContext = ctx
 	}
 
-	config := wayland.DefaultConfig()
+	config := wayland.LoadConfig()
 	manager, err := wayland.NewManager(wlContext.Display(), config)
 	if err != nil {
 		log.Errorf("Failed to initialize wayland manager: %v", err)
