@@ -21,11 +21,10 @@ Item {
     property bool isHovered: mouseArea.containsMouse && !dragging
     property bool showTooltip: mouseArea.containsMouse && !dragging
     property real actualIconSize: 40
-    // Magnification is driven by Dock.qml's updateMagnification() timer; these
-    // are plain properties (not bindings) so the timer can write them without a
-    // binding fighting to reset the value. Mirrors DockAppButton.
     property real magnificationScale: 1.0
     property real magnificationOffset: 0.0
+    Behavior on magnificationScale { SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 } }
+    Behavior on magnificationOffset { SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 } }
     readonly property string tooltipText: I18n.tr("Applications")
 
     readonly property var effectiveLogoColor: {
