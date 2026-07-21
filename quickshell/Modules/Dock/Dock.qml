@@ -564,9 +564,16 @@ Variants {
         }
 
         // ─── Window thumbnail preview ───
-        DockPreview {
-            id: dockPreview
-            targetScreen: dock.screen
+        // Wrapped in a Loader so the DockPreview PanelWindow is only created when
+        // previews are enabled — a nested PanelWindow inside this dock's PanelWindow
+        // delegate crashes the delegate if created unconditionally.
+        Loader {
+            id: dockPreviewLoader
+            active: SettingsData.dockPreviewEnabled
+            sourceComponent: DockPreview {
+                id: dockPreview
+                targetScreen: dock.screen
+            }
         }
 
         Timer {
@@ -605,20 +612,20 @@ Variants {
                 Qt.point(btnPos.x, btnPos.y + btn.height / 2) :
                 Qt.point(btnPos.x + btn.width / 2, btnPos.y);
 
-            dockPreview.show(windows, dock.screen, pos, isVertical,
-                SettingsData.dockPosition === SettingsData.Position.Bottom ? "bottom" :
-                SettingsData.dockPosition === SettingsData.Position.Top ? "top" :
-                SettingsData.dockPosition === SettingsData.Position.Left ? "left" : "right",
-                dock.magnificationExpansion);
+            if (dockPreviewLoader.item)
+                dockPreviewLoader.item.show(windows, dock.screen, pos, isVertical,
+                    SettingsData.dockPosition === SettingsData.Position.Bottom ? "bottom" :
+                    SettingsData.dockPosition === SettingsData.Position.Top ? "top" :
+                    SettingsData.dockPosition === SettingsData.Position.Left ? "left" : "right",
+                    dock.magnificationExpansion);
+
         }
 
         function hidePreview() {
             dock.lastHideTime = Date.now();
-            dockPreview.hide();
+            if (dockPreviewLoader.item)
+                dockPreviewLoader.item.hide();
         }
-
-        implicitWidth: isVertical ? (px(dockGeometry.surfaceThickness + SettingsData.dockIconSize * 0.3) + animationHeadroom) : 0
-        implicitHeight: !isVertical ? (px(dockGeometry.surfaceThickness + SettingsData.dockIconSize * 0.3) + animationHeadroom) : 0
 
         Item {
             id: maskItem
