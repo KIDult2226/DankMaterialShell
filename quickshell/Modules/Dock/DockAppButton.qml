@@ -12,7 +12,7 @@ Item {
     id: root
 
     clip: false
-    scale: mouseArea.containsMouse ? 1.4 : 1.0
+    scale: root.isHovered ? 1.4 : 1.0
     Behavior on scale {
         NumberAnimation { duration: Anims.durShort; easing.type: Easing.BezierSpline; easing.bezierCurve: Anims.emphasizedAccel }
     }
