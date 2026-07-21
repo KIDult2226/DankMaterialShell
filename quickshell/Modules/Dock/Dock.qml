@@ -430,50 +430,17 @@ Variants {
 
         property real animationHeadroom: Math.ceil(SettingsData.dockIconSize * 0.35)
 
-        // ─── Dock magnification (per-button spring-tracked targets) ───
-        // Each dock button computes its own scale/offset target from the
-        // cursor position (a pure binding, matching the framer-motion
-        // reference: https://buildui.com/recipes/magnified-dock) and a
-        // per-button SpringAnimation interpolates toward that target. No
-        // global timer writes the animated values, so the springs never
-        // fight a per-frame retarget and cannot diverge.
+        // ─── Dock magnification (distance-based cosine wave, dhruva-style) ───
         property real mouseDockX: -9999
         property real mouseDockY: -9999
-        // True while the cursor is over the dock surface.
+        // True while the cursor is over the dock. The shrink-back path is driven by
+        // _magnificationUnsettled below so the timer keeps running until icons settle.
         property bool magnificationActive: SettingsData.dockMagnificationEnabled && dockMouseArea.containsMouse && dock.reveal
+        // Set true on exit; cleared once every icon has eased back to scale 1.0.
         property bool _mouseExited: true
         property real lastHideTime: 0
-
-        // Cursor-relative edge expansion. The dock background widens
-        // asymmetrically: when the cursor is within EDGE_RANGE of the left
-        // edge the left side grows up to EDGE_MAX (and symmetrically right),
-        // so magnified+shifted icons near either end never overflow the
-        // layer-shell surface (the original "icons enlarge and disappear"
-        // failure). Mirrors `leftSpring`/`rightSpring` in the reference.
-        readonly property real edgeRange: Math.max(SettingsData.dockIconSize * 0.9, 40)
-        readonly property real edgeMax: Math.max(SettingsData.dockIconSize * (SettingsData.dockMagnificationFactor - 1.0), 40)
-        // 0..edgeRange from the left/right edge → 0..edgeMax expansion.
-        readonly property real _leftEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, mouseDockX)) : 0
-        readonly property real _rightEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, dockMouseArea.width - mouseDockX)) : 0
-        readonly property real _topEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, mouseDockY)) : 0
-        readonly property real _bottomEdgeDist: magnificationActive ? Math.max(0, Math.min(edgeRange, dockMouseArea.height - mouseDockY)) : 0
-        property real magLeftExpansion: 0
-        property real magRightExpansion: 0
-        property real magTopExpansion: 0
-        property real magBottomExpansion: 0
-        // Bind targets; the Behavior's SpringAnimation smooths the tracking
-        // so the background grows/shrinks with the same spring feel as the
-        // icons. onXxxEdgeDistChanged rewrites the target each mouse move,
-        // which redirects the running spring without resetting it (Qt
-        // Behavior semantics) — identical to framer-motion's useSpring.
-        on_LeftEdgeDistChanged: magLeftExpansion = (_leftEdgeDist / edgeRange) * edgeMax
-        on_RightEdgeDistChanged: magRightExpansion = (_rightEdgeDist / edgeRange) * edgeMax
-        on_TopEdgeDistChanged: magTopExpansion = (_topEdgeDist / edgeRange) * edgeMax
-        on_BottomEdgeDistChanged: magBottomExpansion = (_bottomEdgeDist / edgeRange) * edgeMax
-        Behavior on magLeftExpansion { SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 } }
-        Behavior on magRightExpansion { SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 } }
-        Behavior on magTopExpansion { SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 } }
-        Behavior on magBottomExpansion { SpringAnimation { spring: 170; damping: 12; mass: 0.1; epsilon: 0.01 } }
+        // Extra space the dock background grows to fit magnified icons without clipping.
+        readonly property real magnificationExpansion: SettingsData.dockMagnificationEnabled ? SettingsData.dockIconSize * (SettingsData.dockMagnificationFactor - 1.0) : 0
 
 
         // ─── Window thumbnail preview ───
@@ -530,7 +497,7 @@ Variants {
                     SettingsData.dockPosition === SettingsData.Position.Bottom ? "bottom" :
                     SettingsData.dockPosition === SettingsData.Position.Top ? "top" :
                     SettingsData.dockPosition === SettingsData.Position.Left ? "left" : "right",
-                    isVertical ? (SettingsData.dockPosition === SettingsData.Position.Left ? dock.magLeftExpansion : dock.magRightExpansion) : (SettingsData.dockPosition === SettingsData.Position.Bottom ? dock.magTopExpansion : dock.magBottomExpansion));
+                    dock.magnificationExpansion);
 
         }
 
@@ -851,8 +818,8 @@ Variants {
                         anchors.leftMargin: dock.isVertical && SettingsData.dockPosition === SettingsData.Position.Left ? dockGeometry.bodyEdgeMargin : 0
                         anchors.rightMargin: dock.isVertical && SettingsData.dockPosition === SettingsData.Position.Right ? dockGeometry.bodyEdgeMargin : 0
 
-                        implicitWidth: dock.isVertical ? (dockApps.implicitHeight + SettingsData.dockSpacing * 2 + dock.magTopExpansion + dock.magBottomExpansion) : (dockApps.implicitWidth + SettingsData.dockSpacing * 2 + dock.magLeftExpansion + dock.magRightExpansion)
-                        implicitHeight: dock.isVertical ? (dockApps.implicitWidth + SettingsData.dockSpacing * 2 + dock.magLeftExpansion + dock.magRightExpansion) : (dockApps.implicitHeight + SettingsData.dockSpacing * 2 + dock.magTopExpansion + dock.magBottomExpansion)
+                        implicitWidth: dock.isVertical ? (dockApps.implicitHeight + SettingsData.dockSpacing * 2) : (dockApps.implicitWidth + SettingsData.dockSpacing * 2 + dock.magnificationExpansion)
+                        implicitHeight: dock.isVertical ? (dockApps.implicitWidth + SettingsData.dockSpacing * 2 + dock.magnificationExpansion) : (dockApps.implicitHeight + SettingsData.dockSpacing * 2)
                         width: implicitWidth
                         height: implicitHeight
 
