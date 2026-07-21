@@ -1,13 +1,17 @@
 package wayland
 
 import (
+	"encoding/json"
 	"math"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/errdefs"
 	"github.com/AvengeMedia/DankMaterialShell/core/internal/geolocation"
+	"github.com/AvengeMedia/DankMaterialShell/core/internal/icc"
 	wlclient "github.com/AvengeMedia/DankMaterialShell/core/pkg/go-wayland/wayland/client"
 	"github.com/AvengeMedia/DankMaterialShell/core/pkg/syncmap"
 	"github.com/godbus/dbus/v5"
@@ -35,19 +39,34 @@ type Config struct {
 	Enabled           bool
 	ElevationTwilight float64
 	ElevationDaylight float64
+	ICCProfiles       map[string]string `json:"iccProfiles,omitempty"` // outputName -> ICC file path
+	OutputTemps       map[string]int    `json:"outputTemps,omitempty"`  // outputName -> per-output color temperature (K)
 }
 
 type State struct {
-	Config         Config    `json:"config"`
-	CurrentTemp    int       `json:"currentTemp"`
-	NextTransition time.Time `json:"nextTransition"`
-	SunriseTime    time.Time `json:"sunriseTime"`
-	SunsetTime     time.Time `json:"sunsetTime"`
-	DawnTime       time.Time `json:"dawnTime"`
-	NightTime      time.Time `json:"nightTime"`
-	IsDay          bool      `json:"isDay"`
-	SunPosition    float64   `json:"sunPosition"`
+	Config         Config              `json:"config"`
+	CurrentTemp    int                 `json:"currentTemp"`
+	NextTransition time.Time           `json:"nextTransition"`
+	SunriseTime    time.Time           `json:"sunriseTime"`
+	SunsetTime     time.Time           `json:"sunsetTime"`
+	DawnTime       time.Time           `json:"dawnTime"`
+	NightTime      time.Time           `json:"nightTime"`
+	IsDay          bool                `json:"isDay"`
+	SunPosition    float64             `json:"sunPosition"`
+	ICCProfiles    map[string]*ICCStatus `json:"iccProfiles,omitempty"` // outputName -> status
+	OutputTemps    map[string]int        `json:"outputTemps,omitempty"`  // outputName -> current temp
 }
+
+// ICCStatus represents the ICC profile status for a single output.
+type ICCStatus struct {
+	Path        string `json:"path"`        // ICC file path
+	Description string `json:"description"` // ICC profile description
+	Version     string `json:"version"`     // ICC version
+	ColorSpace  string `json:"colorSpace"`  // e.g., "RGB"
+	HasVCGT     bool   `json:"hasVCGT"`     // has video card gamma table
+	Active      bool   `json:"active"`      // currently applied
+}
+
 
 type cmd struct {
 	fn func()
@@ -74,6 +93,7 @@ type Manager struct {
 	availableOutputs    []*wlclient.Output
 	availOutputsMu      sync.RWMutex
 	outputRegNames      syncmap.Map[uint32, uint32]
+	outputNames         syncmap.Map[uint32, string] // outputID -> wl_output name string (e.g., "DP-1")
 	outputs             syncmap.Map[uint32, *outputState]
 	controlsInitialized bool
 	connectionDead      atomic.Bool
@@ -102,6 +122,9 @@ type Manager struct {
 	dbusSignal chan *dbus.Signal
 
 	geoClient geolocation.Client
+
+	lastAppliedTemp  int
+	lastAppliedGamma float64
 }
 
 type outputState struct {
@@ -114,20 +137,88 @@ type outputState struct {
 	isVirtual    bool
 	retryCount   int
 	lastFailTime time.Time
-	lastTemp     int
-	lastGamma    float64
+	iccPath      string       // path to ICC profile file, empty if not set
+	iccProfile   *icc.Profile // cached parsed ICC profile (nil if not loaded)
+	outputTemp   int          // per-output color temperature (K), 0 = use global temp
 }
 
 func DefaultConfig() Config {
 	return Config{
 		Outputs:           []string{},
 		LowTemp:           4000,
-		HighTemp:          6500,
+		HighTemp:          7000,
 		Gamma:             1.0,
 		Enabled:           false,
 		ElevationTwilight: -6.0,
 		ElevationDaylight: 3.0,
 	}
+}
+
+// getConfigPath returns the path to the wayland config file.
+func getConfigPath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(configDir, "niri", "dms", "wayland.json"), nil
+}
+
+// LoadConfig reads the wayland config from disk, falling back to DefaultConfig.
+func LoadConfig() Config {
+	path, err := getConfigPath()
+	if err != nil {
+		return DefaultConfig()
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return DefaultConfig()
+	}
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return DefaultConfig()
+	}
+	// Ensure defaults are set for missing fields
+	if cfg.HighTemp == 0 {
+		cfg.HighTemp = 7000
+	}
+	if cfg.LowTemp == 0 {
+		cfg.LowTemp = 4000
+	}
+	if cfg.Gamma == 0 {
+		cfg.Gamma = 1.0
+	}
+	if cfg.ElevationTwilight == 0 {
+		cfg.ElevationTwilight = -6.0
+	}
+	if cfg.ElevationDaylight == 0 {
+		cfg.ElevationDaylight = 3.0
+	}
+	if cfg.Outputs == nil {
+		cfg.Outputs = []string{}
+	}
+	if cfg.ICCProfiles == nil {
+		cfg.ICCProfiles = make(map[string]string)
+	}
+	if cfg.OutputTemps == nil {
+		cfg.OutputTemps = make(map[string]int)
+	}
+	return cfg
+}
+
+// SaveConfig writes the wayland config to disk.
+func SaveConfig(cfg Config) error {
+	path, err := getConfigPath()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
 }
 
 func (c *Config) Validate() error {
