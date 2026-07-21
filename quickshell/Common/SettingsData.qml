@@ -843,6 +843,8 @@ Singleton {
     property string dockBorderColor: "surfaceText"
     property real dockBorderOpacity: 1.0
     property int dockBorderThickness: 1
+    property bool dockMagnificationEnabled: false
+    property real dockMagnificationFactor: 1.4
     property bool dockIsolateDisplays: false
     property bool dockLauncherEnabled: false
     property string dockLauncherLogoMode: "apps"
