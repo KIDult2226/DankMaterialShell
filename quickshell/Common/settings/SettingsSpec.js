@@ -219,7 +219,12 @@ var SPEC = {
             { pattern: "beepertexts", replacement: "beeper", type: "exact" },
             { pattern: "home assistant desktop", replacement: "homeassistant-desktop", type: "exact" },
             { pattern: "com.transmissionbt.transmission", replacement: "transmission-gtk", type: "contains" },
-            { pattern: "^steam_app_(\\d+)$", replacement: "steam_icon_$1", type: "regex" }
+            { pattern: "^steam_app_(\\d+)$", replacement: "steam_icon_$1", type: "regex" },
+            // niri reports Edge PWA app-ids as 'msedge-_<id>-Default' (underscore after
+            // the dash) but the desktop file is 'msedge-<id>-Default' (no underscore).
+            // Without this, heuristicLookup fails and the window shows no indicator and
+            // a fallback icon (e.g. Telegram Web, other Edge PWAs).
+            { pattern: "^msedge-_(.+)$", replacement: "msedge-$1", type: "regex" }
         ]
     },
     centeringMode: { def: "index" },
