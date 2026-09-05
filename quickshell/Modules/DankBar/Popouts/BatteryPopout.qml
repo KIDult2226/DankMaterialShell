@@ -547,6 +547,69 @@ DankPopout {
                     }
                 }
 
+                Column {
+                    width: parent.width
+                    spacing: Theme.spacingS
+                    visible: BatteryService.hasExternalDevices && SettingsData.batteryShowExternalDevices
+
+                    StyledText {
+                        text: I18n.tr("Connected Devices")
+                        font.pixelSize: Theme.fontSizeSmall
+                        color: Theme.surfaceTextMedium
+                        font.weight: Font.Medium
+                    }
+
+                    Repeater {
+                        model: ScriptModel {
+                            values: BatteryService.externalDevices
+                        }
+
+                        delegate: StyledRect {
+                            required property var modelData
+
+                            width: parent.width
+                            height: 40
+                            radius: Theme.cornerRadius
+                            color: Theme.nestedSurface
+                            border.width: 0
+
+                            Row {
+                                anchors.fill: parent
+                                anchors.leftMargin: Theme.spacingM
+                                anchors.rightMargin: Theme.spacingM
+                                spacing: Theme.spacingM
+
+                                DankIcon {
+                                    id: deviceIcon
+                                    name: BatteryService.getExternalDeviceIcon(modelData.type)
+                                    size: Theme.iconSize - 2
+                                    color: Theme.surfaceText
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+
+                                StyledText {
+                                    text: (modelData.model && modelData.model.length > 0) ? modelData.model : UPowerDeviceType.toString(modelData.type)
+                                    font.pixelSize: Theme.fontSizeSmall
+                                    color: Theme.surfaceText
+                                    font.weight: Font.Medium
+                                    elide: Text.ElideRight
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parent.width - deviceIcon.width - devicePercent.implicitWidth - Theme.spacingM * 3
+                                }
+
+                                StyledText {
+                                    id: devicePercent
+                                    text: `${Math.round(modelData.percentage * 100)}%`
+                                    font.pixelSize: Theme.fontSizeMedium
+                                    color: Math.round(modelData.percentage * 100) <= 20 ? Theme.error : Theme.surfaceText
+                                    font.weight: Font.Bold
+                                    anchors.right: parent.right
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+                        }
+                    }
+                }
                 Item {
                     width: parent.width
                     height: profileButtonGroup.height * profileButtonGroup.scale

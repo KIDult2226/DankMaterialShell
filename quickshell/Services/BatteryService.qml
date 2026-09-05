@@ -377,6 +377,49 @@ Singleton {
         return btDevices;
     }
 
+    // Peripheral devices (HID/Bluetooth/etc) that report a battery level.
+    // Excludes power sources, the laptop battery, and aggregate display devices.
+    readonly property var externalDevices: {
+        const excludedTypes = [
+            UPowerDeviceType.LinePower,
+            UPowerDeviceType.Ups,
+            UPowerDeviceType.Battery,
+            UPowerDeviceType.Computer,
+            UPowerDeviceType.Monitor,
+        ];
+
+        return UPower.devices.values.filter(dev => {
+            if (!dev || !dev.ready || !dev.isPresent || dev.isLaptopBattery)
+                return false;
+            return !excludedTypes.includes(dev.type);
+        });
+    }
+
+    readonly property bool hasExternalDevices: externalDevices.length > 0
+
+    function getExternalDeviceIcon(type) {
+        switch (type) {
+        case UPowerDeviceType.Mouse: return "mouse";
+        case UPowerDeviceType.Keyboard: return "keyboard";
+        case UPowerDeviceType.GamingInput: return "sports_esports";
+        case UPowerDeviceType.Headset:
+        case UPowerDeviceType.Headphones: return "headphones";
+        case UPowerDeviceType.Speakers: return "speakers";
+        case UPowerDeviceType.Pen: return "draw";
+        case UPowerDeviceType.Touchpad: return "touch_app";
+        case UPowerDeviceType.Phone: return "smartphone";
+        case UPowerDeviceType.Tablet:
+        case UPowerDeviceType.Pda: return "tablet";
+        case UPowerDeviceType.Wearable: return "watch";
+        case UPowerDeviceType.RemoteControl: return "remote_control";
+        case UPowerDeviceType.Camera: return "photo_camera";
+        case UPowerDeviceType.MediaPlayer: return "music_note";
+        case UPowerDeviceType.Toy: return "toys";
+        case UPowerDeviceType.BluetoothGeneric: return "bluetooth";
+        default: return "devices";
+        }
+    }
+
     // Format time remaining for charge/discharge
     function formatTimeRemaining() {
         if (!batteryAvailable) {

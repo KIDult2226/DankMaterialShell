@@ -18568,5 +18568,23 @@
     "context": "↑/↓: Navigate • Enter: Paste • Ctrl+C: Copy • Del: Delete • Ctrl+E: Edit • Ctrl+S: Pin/Unpin • F10: Help",
     "reference": "Modals/Clipboard/ClipboardKeyboardHints.qml:30",
     "comment": "Keyboard hints when enter-to-paste is enabled"
+  },
+  {
+    "term": "Connected Devices",
+    "context": "Connected Devices",
+    "reference": "Modules/ControlCenter/Details/BatteryDetail.qml:219",
+    "comment": ""
+  },
+  {
+    "term": "Show connected device battery",
+    "context": "Show connected device battery",
+    "reference": "Modules/Settings/BatteryTab.qml:168",
+    "comment": ""
+  },
+  {
+    "term": "Display battery levels for connected HID and Bluetooth devices.",
+    "context": "Display battery levels for connected HID and Bluetooth devices.",
+    "reference": "Modules/Settings/BatteryTab.qml:169",
+    "comment": ""
   }
 ]

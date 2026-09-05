@@ -160,6 +160,16 @@ done
                             horizontalAlignment: Text.AlignLeft
                         }
                     }
+
+                    SettingsDivider {}
+
+                    SettingsToggleRow {
+                        settingKey: "batteryShowExternalDevices"
+                        text: I18n.tr("Show connected device battery")
+                        description: I18n.tr("Display battery levels for connected HID and Bluetooth devices.")
+                        checked: SettingsData.batteryShowExternalDevices
+                        onToggled: checked => SettingsData.set("batteryShowExternalDevices", checked)
+                    }
                 }
             }
 
