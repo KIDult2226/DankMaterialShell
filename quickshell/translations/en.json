@@ -33612,5 +33612,23 @@
     "tags": [
       "shell"
     ]
+  },
+  {
+    "term": "Connected Devices",
+    "context": "Connected Devices",
+    "reference": "Modules/ControlCenter/Details/BatteryDetail.qml:219",
+    "comment": ""
+  },
+  {
+    "term": "Show connected device battery",
+    "context": "Show connected device battery",
+    "reference": "Modules/Settings/BatteryTab.qml:168",
+    "comment": ""
+  },
+  {
+    "term": "Display battery levels for connected HID and Bluetooth devices.",
+    "context": "Display battery levels for connected HID and Bluetooth devices.",
+    "reference": "Modules/Settings/BatteryTab.qml:169",
+    "comment": ""
   }
 ]

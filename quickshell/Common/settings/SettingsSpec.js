@@ -387,6 +387,7 @@ var SPEC = {
     batteryCriticalNotificationType: { def: 1 },
     batteryAutoPowerSaver: { def: false },
     lowerDisplayRefreshRateOnBattery: { def: false },
+    batteryShowExternalDevices: { def: true },
     lockBeforeSuspend: { def: false },
     loginctlLockIntegration: { def: true },
     fadeToLockEnabled: { def: true },
