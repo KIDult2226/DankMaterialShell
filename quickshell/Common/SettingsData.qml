@@ -812,6 +812,7 @@ Singleton {
     property int batteryCriticalNotificationType: 1
     property bool batteryAutoPowerSaver: false
     property bool lowerDisplayRefreshRateOnBattery: false
+    property bool batteryShowExternalDevices: true
     property bool showBatteryPercent: true
     property bool showBatteryPercentOnlyOnBattery: false
     property bool showBatteryTime: false
