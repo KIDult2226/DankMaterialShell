@@ -579,12 +579,19 @@ DankPopout {
                                 anchors.rightMargin: Theme.spacingM
                                 spacing: Theme.spacingM
 
-                                DankIcon {
+                                Item {
                                     id: deviceIcon
-                                    name: BatteryService.getExternalDeviceIcon(modelData.type)
-                                    size: Theme.iconSize - 2
-                                    color: Theme.surfaceText
+                                    width: 28
+                                    height: 28
+                                    clip: true
                                     anchors.verticalCenter: parent.verticalCenter
+
+                                    DankIcon {
+                                        anchors.centerIn: parent
+                                        name: BatteryService.getExternalDeviceIcon(modelData.type)
+                                        size: Theme.iconSizeSmall
+                                        color: Theme.surfaceText
+                                    }
                                 }
 
                                 StyledText {
