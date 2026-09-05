@@ -10990,5 +10990,14 @@
   },
   "↑/↓: Navigate • Enter: Paste • Ctrl+C: Copy • Del: Delete • Ctrl+E: Edit • Ctrl+S: Pin/Unpin • F10: Help": {
     "↑/↓: Navigate • Enter: Paste • Ctrl+C: Copy • Del: Delete • Ctrl+E: Edit • Ctrl+S: Pin/Unpin • F10: Help": "↑/↓：导航 • Enter：粘贴 • Ctrl+C：复制 • Del：删除 • Ctrl+E：编辑 • Ctrl+S：固定/取消固定 • F10：帮助"
+  },
+  "Connected Devices": {
+    "Connected Devices": "已连接设备"
+  },
+  "Show connected device battery": {
+    "Show connected device battery": "显示已连接设备的电量"
+  },
+  "Display battery levels for connected HID and Bluetooth devices.": {
+    "Display battery levels for connected HID and Bluetooth devices.": "显示已连接的 HID 和蓝牙设备的电量。"
   }
 }
