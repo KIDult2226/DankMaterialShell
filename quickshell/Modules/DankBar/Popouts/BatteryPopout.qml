@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 import Quickshell
 import Quickshell.Services.UPower
 import qs.Common
@@ -573,18 +574,17 @@ DankPopout {
                             color: Theme.nestedSurface
                             border.width: 0
 
-                            Row {
+                            RowLayout {
                                 anchors.fill: parent
                                 anchors.leftMargin: Theme.spacingM
                                 anchors.rightMargin: Theme.spacingM
                                 spacing: Theme.spacingM
 
                                 Item {
-                                    id: deviceIcon
-                                    width: 28
-                                    height: 28
+                                    Layout.preferredWidth: 26
+                                    Layout.preferredHeight: 26
+                                    Layout.alignment: Qt.AlignVCenter
                                     clip: true
-                                    anchors.verticalCenter: parent.verticalCenter
 
                                     DankIcon {
                                         anchors.centerIn: parent
@@ -595,23 +595,21 @@ DankPopout {
                                 }
 
                                 StyledText {
+                                    Layout.fillWidth: true
+                                    Layout.alignment: Qt.AlignVCenter
                                     text: (modelData.model && modelData.model.length > 0) ? modelData.model : UPowerDeviceType.toString(modelData.type)
                                     font.pixelSize: Theme.fontSizeSmall
                                     color: Theme.surfaceText
                                     font.weight: Font.Medium
                                     elide: Text.ElideRight
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - deviceIcon.width - devicePercent.implicitWidth - Theme.spacingM * 3
                                 }
 
                                 StyledText {
-                                    id: devicePercent
+                                    Layout.alignment: Qt.AlignVCenter
                                     text: `${Math.round(modelData.percentage * 100)}%`
                                     font.pixelSize: Theme.fontSizeMedium
                                     color: Math.round(modelData.percentage * 100) <= 20 ? Theme.error : Theme.surfaceText
                                     font.weight: Font.Bold
-                                    anchors.right: parent.right
-                                    anchors.verticalCenter: parent.verticalCenter
                                 }
                             }
                         }
