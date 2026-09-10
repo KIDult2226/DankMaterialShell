@@ -361,13 +361,13 @@ func parseCurveType(data []byte, entry tagEntry) (Curve, error) {
 
 	c := Curve{}
 
-	switch {
-	case count == 0:
+	switch count {
+	case 0:
 		// Identity curve
 		c.Type = CurveIdentity
 		c.Gamma = 1.0
 
-	case count == 1:
+	case 1:
 		// Single gamma value (u16Fixed16Number)
 		c.Type = CurveParametric
 		if int(entry.offset)+14 > len(data) {
@@ -443,12 +443,13 @@ func parseVCGT(data []byte, entry tagEntry) (*VCGT, error) {
 			for i := 0; i < count; i++ {
 				byteOff := dataStart + (ch*count+i)*entrySize
 				var val uint16
-				if entrySize == 2 {
+				switch entrySize {
+				case 2:
 					val = binary.BigEndian.Uint16(data[byteOff : byteOff+2])
-				} else if entrySize == 1 {
+				case 1:
 					// u8 entry: scale to u16
 					val = uint16(data[byteOff]) * 257 // 257 = 65535/255
-				} else {
+				default:
 					val = binary.BigEndian.Uint16(data[byteOff : byteOff+2])
 				}
 				channels_arr[ch][i] = val
