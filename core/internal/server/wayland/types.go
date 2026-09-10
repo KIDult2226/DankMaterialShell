@@ -150,7 +150,7 @@ func DefaultConfig() Config {
 	return Config{
 		Outputs:           []string{},
 		LowTemp:           4000,
-		HighTemp:          7000,
+		HighTemp:          6500,
 		Gamma:             1.0,
 		Contrast:          1.0,
 		Enabled:           false,
@@ -182,24 +182,25 @@ func LoadConfig() Config {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return DefaultConfig()
 	}
-	// Ensure defaults are set for missing fields
+	// Ensure defaults are set for missing fields (keep in sync with DefaultConfig)
+	def := DefaultConfig()
 	if cfg.HighTemp == 0 {
-		cfg.HighTemp = 7000
+		cfg.HighTemp = def.HighTemp
 	}
 	if cfg.LowTemp == 0 {
-		cfg.LowTemp = 4000
+		cfg.LowTemp = def.LowTemp
 	}
 	if cfg.Gamma == 0 {
-		cfg.Gamma = 1.0
+		cfg.Gamma = def.Gamma
 	}
 	if cfg.Contrast == 0 {
-		cfg.Contrast = 1.0
+		cfg.Contrast = def.Contrast
 	}
 	if cfg.ElevationTwilight == 0 {
-		cfg.ElevationTwilight = -6.0
+		cfg.ElevationTwilight = def.ElevationTwilight
 	}
 	if cfg.ElevationDaylight == 0 {
-		cfg.ElevationDaylight = 3.0
+		cfg.ElevationDaylight = def.ElevationDaylight
 	}
 	if cfg.Outputs == nil {
 		cfg.Outputs = []string{}
