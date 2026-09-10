@@ -305,11 +305,11 @@ func (m *Manager) setupRegistry() error {
 }
 
 func (m *Manager) setupOutputControls(outputs []*wlclient.Output, manager *wlr_gamma_control.ZwlrGammaControlManagerV1) error {
-	log.Infof("icc-debug: setupOutputControls called with %d outputs", len(outputs))
+	log.Debugf("setupOutputControls called with %d outputs", len(outputs))
 	for _, output := range outputs {
 		control, err := manager.GetGammaControl(output)
 		if err != nil {
-			log.Warnf("icc-debug: GetGammaControl failed for output %d: %v", output.ID(), err)
+			log.Debugf("GetGammaControl failed for output %d: %v", output.ID(), err)
 			continue
 		}
 		outputID := output.ID()
@@ -322,7 +322,7 @@ func (m *Manager) setupOutputControls(outputs []*wlclient.Output, manager *wlr_g
 		}
 		m.setupControlHandlers(outState, control)
 		m.outputs.Store(outputID, outState)
-		log.Infof("icc-debug: created gamma control for output %d", outputID)
+		log.Debugf("created gamma control for output %d", outputID)
 	}
 	return nil
 }
@@ -332,15 +332,15 @@ func (m *Manager) setupControlHandlers(state *outputState, control *wlr_gamma_co
 
 	control.SetGammaSizeHandler(func(e wlr_gamma_control.ZwlrGammaControlV1GammaSizeEvent) {
 		size := e.Size
-		log.Infof("icc-debug: gamma_size event received: output=%d size=%d", outputID, size)
+		log.Debugf("gamma_size event received: output=%d size=%d", outputID, size)
 		m.post(func() {
 			if out, ok := m.outputs.Load(outputID); ok {
 				out.rampSize = size
 				out.failed = false
 				out.retryCount = 0
-				log.Infof("icc-debug: set rampSize=%d for output %d", size, outputID)
+				log.Debugf("set rampSize=%d for output %d", size, outputID)
 			} else {
-				log.Warnf("icc-debug: gamma_size: output %d not found in m.outputs", outputID)
+				log.Debugf("gamma_size: output %d not found in m.outputs", outputID)
 			}
 			m.lastAppliedTemp = 0
 			m.applyCurrentTemp("gamma_size")
@@ -847,16 +847,16 @@ func (m *Manager) applyGamma(temp int) {
 
 	switch {
 	case m.connectionDead.Load():
-		log.Warnf("icc-debug: applyGamma skipped: connectionDead")
+		log.Debugf("applyGamma skipped: connectionDead")
 		return
 	case !m.controlsInitialized:
-		log.Warnf("icc-debug: applyGamma skipped: controls not initialized")
+		log.Debugf("applyGamma skipped: controls not initialized")
 		return
 	case m.lastAppliedTemp == temp && m.lastAppliedGamma == gamma:
-		log.Infof("icc-debug: applyGamma skipped: temp unchanged (%d)", temp)
+		log.Debugf("applyGamma skipped: temp unchanged (%d)", temp)
 		return
 	}
-	log.Infof("icc-debug: applyGamma called: temp=%d gamma=%f", temp, gamma)
+	log.Debugf("applyGamma called: temp=%d gamma=%f", temp, gamma)
 
 	var outs []*outputState
 	m.outputs.Range(func(_ uint32, out *outputState) bool {
@@ -864,10 +864,10 @@ func (m *Manager) applyGamma(temp int) {
 		return true
 	})
 	if len(outs) == 0 {
-		log.Warnf("icc-debug: applyGamma: no outputs in m.outputs")
+		log.Debugf("applyGamma: no outputs in m.outputs")
 		return
 	}
-	log.Infof("icc-debug: applyGamma: processing %d outputs", len(outs))
+	log.Debugf("applyGamma: processing %d outputs", len(outs))
 
 	type job struct {
 		out  *outputState
@@ -878,17 +878,17 @@ func (m *Manager) applyGamma(temp int) {
 	for _, out := range outs {
 		switch {
 		case out.failed:
-			log.Warnf("icc-debug: output %d skipped: failed", out.id)
+			log.Debugf("output %d skipped: failed", out.id)
 			continue
 		case out.rampSize == 0:
-			log.Warnf("icc-debug: output %d skipped: rampSize=0", out.id)
+			log.Debugf("output %d skipped: rampSize=0", out.id)
 			continue
 		case out.gammaControl == nil:
 			continue
 		case out.rampCurrent(temp, gamma, contrast):
 			continue
 		case !m.outputStillValid(out):
-			log.Warnf("icc-debug: output %d skipped: not valid", out.id)
+			log.Debugf("output %d skipped: not valid", out.id)
 			continue
 		}
 		var ramp GammaRamp
