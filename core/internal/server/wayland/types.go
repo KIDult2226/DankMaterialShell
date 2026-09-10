@@ -41,21 +41,21 @@ type Config struct {
 	ElevationTwilight float64
 	ElevationDaylight float64
 	ICCProfiles       map[string]string `json:"iccProfiles,omitempty"` // outputName -> ICC file path
-	OutputTemps       map[string]int    `json:"outputTemps,omitempty"`  // outputName -> per-output color temperature (K)
+	OutputTemps       map[string]int    `json:"outputTemps,omitempty"` // outputName -> per-output color temperature (K)
 }
 
 type State struct {
-	Config         Config              `json:"config"`
-	CurrentTemp    int                 `json:"currentTemp"`
-	NextTransition time.Time           `json:"nextTransition"`
-	SunriseTime    time.Time           `json:"sunriseTime"`
-	SunsetTime     time.Time           `json:"sunsetTime"`
-	DawnTime       time.Time           `json:"dawnTime"`
-	NightTime      time.Time           `json:"nightTime"`
-	IsDay          bool                `json:"isDay"`
-	SunPosition    float64             `json:"sunPosition"`
+	Config         Config                `json:"config"`
+	CurrentTemp    int                   `json:"currentTemp"`
+	NextTransition time.Time             `json:"nextTransition"`
+	SunriseTime    time.Time             `json:"sunriseTime"`
+	SunsetTime     time.Time             `json:"sunsetTime"`
+	DawnTime       time.Time             `json:"dawnTime"`
+	NightTime      time.Time             `json:"nightTime"`
+	IsDay          bool                  `json:"isDay"`
+	SunPosition    float64               `json:"sunPosition"`
 	ICCProfiles    map[string]*ICCStatus `json:"iccProfiles,omitempty"` // outputName -> status
-	OutputTemps    map[string]int        `json:"outputTemps,omitempty"`  // outputName -> current temp
+	OutputTemps    map[string]int        `json:"outputTemps,omitempty"` // outputName -> current temp
 }
 
 // ICCStatus represents the ICC profile status for a single output.
@@ -67,7 +67,6 @@ type ICCStatus struct {
 	HasVCGT     bool   `json:"hasVCGT"`     // has video card gamma table
 	Active      bool   `json:"active"`      // currently applied
 }
-
 
 type cmd struct {
 	fn func()

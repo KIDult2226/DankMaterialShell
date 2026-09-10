@@ -1,40 +1,62 @@
 package icc
 
 import (
+	"encoding/binary"
 	"math"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
-// Test ICC profile paths
+// Vendor-profile tests are optional: set ICC_TEST_DIR to a directory holding
+// the files below to run them against real display profiles. CI has none, so
+// they are skipped there and the synthetic tests at the bottom cover parsing
+// and ramp generation instead.
 var testFiles = []struct {
 	name string
-	path string
+	file string
 }{
 	{
 		name: "Samsung Odyssey Neo G8 (v2.1, matrix-TRC, vcgt)",
-		path: "/mnt/StorageSSD3/Program Files/1D8HG_B173ZAN_31-08-2023.icm",
+		file: "1D8HG_B173ZAN_31-08-2023.icm",
 	},
 	{
 		name: "DisplayPort monitor (v2.1, matrix-TRC, vcgt)",
-		path: "/mnt/StorageSSD3/Program Files/DP_31-08-2023.icm",
+		file: "DP_31-08-2023.icm",
 	},
 	{
 		name: "GPD Win Max 2 (v2.2, XYZLUT+MTX, vcgt)",
-		path: "/mnt/StorageSSD3/Program Files/GPD1001H #1 2024-11-29 22-12 D6500 2.2 F-S XYZLUT+MTX.icm",
+		file: "GPD1001H #1 2024-11-29 22-12 D6500 2.2 F-S XYZLUT+MTX.icm",
 	},
+}
+
+// vendorProfile resolves an optional vendor profile, skipping the test when
+// ICC_TEST_DIR is unset or the file is missing.
+func vendorProfile(t *testing.T, file string) string {
+	t.Helper()
+	dir := os.Getenv("ICC_TEST_DIR")
+	if dir == "" {
+		t.Skip("ICC_TEST_DIR not set; skipping vendor profile test")
+	}
+	path := filepath.Join(dir, file)
+	if _, err := os.Stat(path); err != nil {
+		t.Skipf("vendor profile unavailable: %v", err)
+	}
+	return path
 }
 
 func TestParseFile(t *testing.T) {
 	for _, tc := range testFiles {
 		t.Run(tc.name, func(t *testing.T) {
+			path := vendorProfile(t, tc.file)
+
 			// Read file to get expected size
-			info, err := os.Stat(tc.path)
+			info, err := os.Stat(path)
 			if err != nil {
 				t.Fatalf("cannot stat file: %v", err)
 			}
 
-			p, err := ParseFile(tc.path)
+			p, err := ParseFile(path)
 			if err != nil {
 				t.Fatalf("ParseFile failed: %v", err)
 			}
@@ -125,7 +147,7 @@ func TestParseFile(t *testing.T) {
 func TestGenerateGammaRamp(t *testing.T) {
 	for _, tc := range testFiles {
 		t.Run(tc.name, func(t *testing.T) {
-			p, err := ParseFile(tc.path)
+			p, err := ParseFile(vendorProfile(t, tc.file))
 			if err != nil {
 				t.Fatalf("ParseFile failed: %v", err)
 			}
@@ -302,4 +324,163 @@ func itoa(n uint32) string {
 		n /= 10
 	}
 	return digits
+}
+
+// --- synthetic profile tests (self-contained; also cover CI) ---
+
+func putS15Fixed16(b []byte, off int, v float64) {
+	binary.BigEndian.PutUint32(b[off:], uint32(int32(math.Round(v*65536))))
+}
+
+func putU8Fixed8(b []byte, off int, v float64) {
+	binary.BigEndian.PutUint16(b[off:], uint16(math.Round(v*256)))
+}
+
+// buildSyntheticProfile builds a minimal but valid ICC v2 monitor profile with
+// desc, rXYZ/gXYZ/bXYZ, rTRC/gTRC/bTRC (single gamma per channel), wtpt and a
+// table vcgt tag, so parsing and ramp generation can be exercised without a
+// vendor profile on disk.
+func buildSyntheticProfile(desc string, gamma float64) []byte {
+	xyzTag := func(x, y, z float64) []byte {
+		d := make([]byte, 20)
+		copy(d[0:], "XYZ ")
+		putS15Fixed16(d, 8, x)
+		putS15Fixed16(d, 12, y)
+		putS15Fixed16(d, 16, z)
+		return d
+	}
+	curvTag := func(g float64) []byte {
+		d := make([]byte, 16)
+		copy(d[0:], "curv")
+		binary.BigEndian.PutUint32(d[8:], 1) // count=1 -> single gamma value
+		putU8Fixed8(d, 12, g)
+		return d
+	}
+	descTag := make([]byte, 12+len(desc)+1)
+	copy(descTag[0:], "desc")
+	binary.BigEndian.PutUint32(descTag[8:], uint32(len(desc)+1)) // length includes NUL
+	copy(descTag[12:], desc)
+
+	const vcgtEntries = 4
+	vcgtTag := make([]byte, 18+3*vcgtEntries*2)
+	copy(vcgtTag[0:], "vcgt")
+	binary.BigEndian.PutUint16(vcgtTag[12:], 3)           // channels
+	binary.BigEndian.PutUint16(vcgtTag[14:], vcgtEntries) // entries per channel
+	binary.BigEndian.PutUint16(vcgtTag[16:], 2)           // entry size in bytes
+	for ch := 0; ch < 3; ch++ {
+		for i := 0; i < vcgtEntries; i++ {
+			v := uint16(math.Round(65535.0 * float64(i) / float64(vcgtEntries-1)))
+			binary.BigEndian.PutUint16(vcgtTag[18+(ch*vcgtEntries+i)*2:], v)
+		}
+	}
+
+	type tag struct {
+		sig  string
+		data []byte
+	}
+	tags := []tag{
+		{"desc", descTag},
+		{"rXYZ", xyzTag(0.4360, 0.2225, 0.0139)},
+		{"gXYZ", xyzTag(0.3851, 0.7169, 0.0971)},
+		{"bXYZ", xyzTag(0.1431, 0.0606, 0.7141)},
+		{"rTRC", curvTag(gamma)},
+		{"gTRC", curvTag(gamma)},
+		{"bTRC", curvTag(gamma)},
+		{"wtpt", xyzTag(0.9642, 1.0, 0.8249)},
+		{"vcgt", vcgtTag},
+	}
+
+	const headerSize = 128
+	tableSize := 4 + 12*len(tags)
+	total := headerSize + tableSize
+	for _, tg := range tags {
+		total += len(tg.data)
+	}
+
+	buf := make([]byte, total)
+
+	binary.BigEndian.PutUint32(buf[0:], uint32(total))
+	binary.BigEndian.PutUint32(buf[8:], 0x02100000) // version 2.1.0
+	copy(buf[12:], "mntr")
+	copy(buf[16:], "RGB ")
+	copy(buf[20:], "XYZ ")
+	binary.BigEndian.PutUint16(buf[24:], 2026)
+	binary.BigEndian.PutUint16(buf[26:], 9)
+	binary.BigEndian.PutUint16(buf[28:], 10)
+	copy(buf[36:], "acsp")
+	putS15Fixed16(buf, 68, 0.9642) // D50 illuminant
+	putS15Fixed16(buf, 72, 1.0)
+	putS15Fixed16(buf, 76, 0.8249)
+
+	binary.BigEndian.PutUint32(buf[128:], uint32(len(tags)))
+	off := headerSize + tableSize
+	for i, tg := range tags {
+		base := 132 + i*12
+		copy(buf[base:], tg.sig)
+		binary.BigEndian.PutUint32(buf[base+4:], uint32(off))
+		binary.BigEndian.PutUint32(buf[base+8:], uint32(len(tg.data)))
+		copy(buf[off:], tg.data)
+		off += len(tg.data)
+	}
+	return buf
+}
+
+func TestParseBytesSynthetic(t *testing.T) {
+	const desc = "Synthetic Test Display"
+	data := buildSyntheticProfile(desc, 2.2)
+
+	p, err := ParseBytes(data)
+	if err != nil {
+		t.Fatalf("ParseBytes failed: %v", err)
+	}
+
+	if p.Size != uint32(len(data)) {
+		t.Errorf("Size = %d, want %d", p.Size, len(data))
+	}
+	if p.Version != "2.1.0" {
+		t.Errorf("Version = %q, want %q", p.Version, "2.1.0")
+	}
+	if p.Class != "mntr" {
+		t.Errorf("Class = %q, want %q", p.Class, "mntr")
+	}
+	if p.ColorSpace != "RGB" {
+		t.Errorf("ColorSpace = %q, want %q", p.ColorSpace, "RGB")
+	}
+	if p.Description != desc {
+		t.Errorf("Description = %q, want %q", p.Description, desc)
+	}
+	if !p.HasMatrix {
+		t.Error("HasMatrix = false, want true")
+	}
+	if !p.HasTRC {
+		t.Error("HasTRC = false, want true")
+	}
+	if !p.HasVCGT {
+		t.Error("HasVCGT = false, want true")
+	}
+	if got := p.TRC[0].Gamma; math.Abs(got-2.2) > 0.01 {
+		t.Errorf("TRC[0].Gamma = %f, want ~2.2", got)
+	}
+	if got := p.WhitePoint[0]; math.Abs(got-0.9642) > 0.001 {
+		t.Errorf("WhitePoint X = %f, want ~0.9642", got)
+	}
+}
+
+func TestGenerateGammaRampSynthetic(t *testing.T) {
+	p, err := ParseBytes(buildSyntheticProfile("Synthetic Test Display", 2.2))
+	if err != nil {
+		t.Fatalf("ParseBytes failed: %v", err)
+	}
+
+	const size = 256
+	ramp, err := GenerateGammaRamp(size, p)
+	if err != nil {
+		t.Fatalf("GenerateGammaRamp failed: %v", err)
+	}
+	if len(ramp.Red) != size || len(ramp.Green) != size || len(ramp.Blue) != size {
+		t.Fatalf("ramp lengths = %d/%d/%d, want %d", len(ramp.Red), len(ramp.Green), len(ramp.Blue), size)
+	}
+	if ramp.Red[size-1] <= ramp.Red[0] {
+		t.Errorf("ramp not increasing: first=%d last=%d", ramp.Red[0], ramp.Red[size-1])
+	}
 }

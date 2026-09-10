@@ -25,10 +25,6 @@ import (
 
 const animKelvinStep = 25
 
-const neutralTemp = 6500
-
-// Go timers freeze during suspend; cap sleeps so wall-clock deadlines can't be missed.
-const maxScheduleWait = 5 * time.Minute
 func NewManager(display wlclient.WaylandDisplay, config Config) (*Manager, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err

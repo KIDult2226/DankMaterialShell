@@ -27,10 +27,10 @@ const (
 // Profile represents a parsed ICC color profile.
 type Profile struct {
 	Size        uint32
-	Version     string   // "2.1.0", "4.3.0"
-	Class       string   // "mntr", "scnr", "prtr"
-	ColorSpace  string   // "RGB", "CMYK"
-	Description string   // from desc tag
+	Version     string        // "2.1.0", "4.3.0"
+	Class       string        // "mntr", "scnr", "prtr"
+	ColorSpace  string        // "RGB", "CMYK"
+	Description string        // from desc tag
 	Matrix      [3][3]float64 // rXYZ, gXYZ, bXYZ columns
 	HasMatrix   bool
 	TRC         [3]Curve // rTRC, gTRC, bTRC

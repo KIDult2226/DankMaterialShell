@@ -101,22 +101,22 @@ func runICCList(cmd *cobra.Command, args []string) {
 		log.Fatalf("Failed to get ICC status: %v", err)
 	}
 
-	statusMap := make(map[string]map[string]interface{})
+	statusMap := make(map[string]map[string]any)
 	outputs := []string{}
 	if resp.Result != nil {
 		if resultBytes, err := json.Marshal(*resp.Result); err == nil {
-			var result map[string]interface{}
+			var result map[string]any
 			if err := json.Unmarshal(resultBytes, &result); err == nil {
-				if outputsRaw, ok := result["outputs"].([]interface{}); ok {
+				if outputsRaw, ok := result["outputs"].([]any); ok {
 					for _, o := range outputsRaw {
 						if s, ok := o.(string); ok {
 							outputs = append(outputs, s)
 						}
 					}
 				}
-				if profilesRaw, ok := result["profiles"].(map[string]interface{}); ok {
+				if profilesRaw, ok := result["profiles"].(map[string]any); ok {
 					for k, v := range profilesRaw {
-						if m, ok := v.(map[string]interface{}); ok {
+						if m, ok := v.(map[string]any); ok {
 							statusMap[k] = m
 						}
 					}
@@ -325,22 +325,22 @@ func runICCStatus(cmd *cobra.Command, args []string) {
 		log.Fatalf("Failed to get ICC status: %v", err)
 	}
 
-	statusMap := make(map[string]map[string]interface{})
+	statusMap := make(map[string]map[string]any)
 	outputs := []string{}
 	if resp.Result != nil {
 		if resultBytes, err := json.Marshal(*resp.Result); err == nil {
-			var result map[string]interface{}
+			var result map[string]any
 			if err := json.Unmarshal(resultBytes, &result); err == nil {
-				if outputsRaw, ok := result["outputs"].([]interface{}); ok {
+				if outputsRaw, ok := result["outputs"].([]any); ok {
 					for _, o := range outputsRaw {
 						if s, ok := o.(string); ok {
 							outputs = append(outputs, s)
 						}
 					}
 				}
-				if profilesRaw, ok := result["profiles"].(map[string]interface{}); ok {
+				if profilesRaw, ok := result["profiles"].(map[string]any); ok {
 					for k, v := range profilesRaw {
-						if m, ok := v.(map[string]interface{}); ok {
+						if m, ok := v.(map[string]any); ok {
 							statusMap[k] = m
 						}
 					}

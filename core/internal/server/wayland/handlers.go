@@ -205,7 +205,7 @@ func handleSubscribe(conn *models.Conn, req models.Request, manager *Manager) {
 func handleICCGetStatus(conn *models.Conn, req models.Request, manager *Manager) {
 	status := manager.GetICCStatus()
 	outputs := manager.ListOutputs()
-	result := map[string]interface{}{
+	result := map[string]any{
 		"outputs":  outputs,
 		"profiles": status,
 	}
