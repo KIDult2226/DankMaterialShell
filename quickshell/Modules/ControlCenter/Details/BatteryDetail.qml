@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Layouts
 import Quickshell.Services.UPower
 import qs.Common
 import qs.Services
@@ -232,38 +233,42 @@ Rectangle {
                     border.color: Theme.outlineLight
                     border.width: 1
 
-                    Row {
+                    RowLayout {
                         anchors.fill: parent
                         anchors.leftMargin: Theme.spacingM
                         anchors.rightMargin: Theme.spacingM
                         spacing: Theme.spacingM
-
-                        DankIcon {
-                            id: deviceIcon
-                            name: BatteryService.getExternalDeviceIcon(modelData.type)
-                            size: Theme.iconSize - 2
-                            color: Theme.surfaceText
-                            anchors.verticalCenter: parent.verticalCenter
+                    
+                        Item {
+                            Layout.preferredWidth: 26
+                            Layout.preferredHeight: 26
+                            Layout.alignment: Qt.AlignVCenter
+                            clip: true
+                    
+                            DankIcon {
+                                anchors.centerIn: parent
+                                name: BatteryService.getExternalDeviceIcon(modelData.type)
+                                size: Theme.iconSizeSmall
+                                color: Theme.surfaceText
+                            }
                         }
-
+                    
                         StyledText {
+                            Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignVCenter
                             text: (modelData.model && modelData.model.length > 0) ? modelData.model : UPowerDeviceType.toString(modelData.type)
                             font.pixelSize: Theme.fontSizeMedium
                             font.weight: Font.Medium
                             color: Theme.surfaceText
                             elide: Text.ElideRight
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width - deviceIcon.width - devicePercent.implicitWidth - Theme.spacingM * 3
                         }
-
+                    
                         StyledText {
-                            id: devicePercent
+                            Layout.alignment: Qt.AlignVCenter
                             text: `${Math.round(modelData.percentage * 100)}%`
                             font.pixelSize: Theme.fontSizeMedium
                             font.weight: Font.Bold
                             color: Math.round(modelData.percentage * 100) <= 20 ? Theme.error : Theme.surfaceText
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
                         }
                     }
                 }
