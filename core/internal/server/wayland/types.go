@@ -192,6 +192,9 @@ func LoadConfig() Config {
 	if cfg.Gamma == 0 {
 		cfg.Gamma = 1.0
 	}
+	if cfg.Contrast == 0 {
+		cfg.Contrast = 1.0
+	}
 	if cfg.ElevationTwilight == 0 {
 		cfg.ElevationTwilight = -6.0
 	}
