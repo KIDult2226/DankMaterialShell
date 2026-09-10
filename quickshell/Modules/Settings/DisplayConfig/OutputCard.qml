@@ -560,7 +560,7 @@ StyledRect {
                 width: parent.width
                 anchors.verticalCenter: parent.verticalCenter
                 minimum: 3000
-                maximum: 9000
+                maximum: 10000
                 step: 100
                 value: colorTempRow.currentTemp === 0 ? 7000 : colorTempRow.currentTemp
                 showValue: true
