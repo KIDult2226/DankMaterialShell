@@ -11733,18 +11733,54 @@
     "description": "Limit the maximum battery charge level to extend lifespan."
   },
   {
+    "section": "batteryShowExternalDevices",
+    "label": "Show connected device battery",
+    "tabIndex": 42,
+    "category": "Power & Security",
+    "keywords": [
+      "battery",
+      "bluetooth",
+      "bt",
+      "charge",
+      "charging",
+      "connected",
+      "device",
+      "devices",
+      "display",
+      "levels",
+      "monitor",
+      "output",
+      "power",
+      "screen",
+      "security",
+      "show"
+    ],
+    "description": "Display battery levels for connected HID and Bluetooth devices."
+  },
+  {
     "section": "batteryStatusCard",
     "label": "Status",
     "tabIndex": 42,
     "category": "Power & Security",
     "keywords": [
       "battery",
+      "bluetooth",
+      "bt",
       "charge",
+      "charging",
+      "connected",
+      "devices",
+      "display",
       "health",
+      "levels",
+      "monitor",
+      "output",
       "power",
+      "screen",
       "security",
       "status"
-    ]
+    ],
+    "description": "Display battery levels for connected HID and Bluetooth devices."
   },
   {
     "section": "_tab_43",

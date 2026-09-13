@@ -238,13 +238,13 @@ Rectangle {
                         anchors.leftMargin: Theme.spacingM
                         anchors.rightMargin: Theme.spacingM
                         spacing: Theme.spacingM
-                    
+
                         Item {
                             Layout.preferredWidth: 26
                             Layout.preferredHeight: 26
                             Layout.alignment: Qt.AlignVCenter
                             clip: true
-                    
+
                             DankIcon {
                                 anchors.centerIn: parent
                                 name: BatteryService.getExternalDeviceIcon(modelData.type)
@@ -252,7 +252,7 @@ Rectangle {
                                 color: Theme.surfaceText
                             }
                         }
-                    
+
                         StyledText {
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignVCenter
@@ -262,7 +262,7 @@ Rectangle {
                             color: Theme.surfaceText
                             elide: Text.ElideRight
                         }
-                    
+
                         StyledText {
                             Layout.alignment: Qt.AlignVCenter
                             text: `${Math.round(modelData.percentage * 100)}%`
